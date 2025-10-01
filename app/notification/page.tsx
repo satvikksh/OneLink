@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import LoadingWrapper from "../loading-wrapper";
 
 interface Notification {
   id: number;
@@ -23,26 +24,28 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Notifications</h1>
-      <div className="space-y-4">
-        {notifications.length === 0 ? (
-          <p className="text-gray-500">No notifications yet</p>
-        ) : (
-          notifications.map((n) => (
-            <div
-              key={n.id}
-              className={`p-4 rounded shadow cursor-pointer ${
-                n.isRead ? "bg-gray-100" : "bg-blue-50"
-              }`}
-              onClick={() => markAsRead(n.id)}
-            >
-              <p className="text-gray-800">{n.message}</p>
-              <span className="text-xs text-gray-500">{n.time}</span>
-            </div>
-          ))
-        )}
+    <LoadingWrapper>
+      <div className="p-6 max-w-2xl mx-auto">
+        <h1 className="text-2xl font-bold mb-6">Notifications</h1>
+        <div className="space-y-4">
+          {notifications.length === 0 ? (
+            <p className="text-gray-500">No notifications yet</p>
+          ) : (
+            notifications.map((n) => (
+              <div
+                key={n.id}
+                className={`p-4 rounded shadow cursor-pointer ${
+                  n.isRead ? "bg-gray-100" : "bg-blue-50"
+                }`}
+                onClick={() => markAsRead(n.id)}
+              >
+                <p className="text-gray-800">{n.message}</p>
+                <span className="text-xs text-gray-500">{n.time}</span>
+              </div>
+            ))
+          )}
+        </div>
       </div>
-    </div>
+    </LoadingWrapper>
   );
 }

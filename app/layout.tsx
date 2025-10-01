@@ -4,8 +4,8 @@ import React, { ReactNode } from "react";
 import Navbar from "./Navbar";
 
 export const metadata = {
-  title: "LinkedIn Clone",
-  description: "Next.js LinkedIn Clone",
+  title: "OneLink",
+  description: "Next.js OneLink Application",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

@@ -19,7 +19,7 @@ const Navbar: React.FC = () => {
     <header className="bg-white shadow p-4 flex justify-between items-center fixed top-0 w-full z-50">
       {/* Logo */}
       <div className="flex items-center gap-2">
-        <Image src="/logo 1L.png" alt="Logo" width={40} height={40} />
+        <Image src="/logo.png" alt="Logo" width={40} height={40} />
         <span className="text-xl font-bold text-sky-700">OneLink</span>
       </div>
 
