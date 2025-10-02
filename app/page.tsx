@@ -1,10 +1,8 @@
-// src/app/page.tsx
 "use client";
 
 import React, { useState } from "react";
-// import Navbar from "./Navbar";
 import Sidebar from "./Sidebar";
-import Feed from "./feed/page";
+import Feed from "./components/Feed";   // ✅ ab safe
 
 interface Post {
   id: number;
@@ -43,9 +41,8 @@ const HomePage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* <Navbar /> */}
       <main className="max-w-6xl mx-auto mt-6 flex gap-6">
-        <Feed posts={posts} />
+        <Feed posts={posts} />  
         <Sidebar suggestions={suggestions} addConnection={addConnection} />
       </main>
     </div>
