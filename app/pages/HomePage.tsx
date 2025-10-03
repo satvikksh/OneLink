@@ -100,7 +100,7 @@ const HomePage: React.FC = () => {
     setConnections(prev => prev.filter(conn => conn.id !== connectionId));
   }, []);
 
-  // Post interaction handlers - FIXED
+  // Post interaction handlers
   const handleLike = useCallback((postId: number) => {
     setPosts(prev => prev.map(post => 
       post.id === postId 
@@ -114,7 +114,6 @@ const HomePage: React.FC = () => {
   }, []);
 
   const addComment = useCallback((postId: number, comment: string) => {
-    // In a real app, you'd add the comment to a comments array
     setPosts(prev => prev.map(post => 
       post.id === postId 
         ? { ...post, comments: post.comments + 1 }
@@ -132,7 +131,7 @@ const HomePage: React.FC = () => {
     console.log(`Shared post ${postId}`);
   }, []);
 
-  // Create post handler - FIXED
+  // Create post handler
   const createPost = useCallback((newPost: Omit<Post, "id" | "timestamp" | "likes" | "comments" | "shares" | "isLiked">) => {
     const post: Post = {
       ...newPost,
@@ -156,6 +155,7 @@ const HomePage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Remove top padding/margin since navbar is fixed */}
       <main className="max-w-7xl mx-auto flex gap-6 px-4">
         {/* Left Sidebar - Profile & Connections */}
         <div className="w-80 flex-shrink-0 hidden lg:block space-y-6">

@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import Navbar from "./components/Navbar";
 import HomePage from "./pages/HomePage";
 import NetworkPage from "./pages/NetworkPage";
@@ -9,9 +10,16 @@ import ChatPage from "./chat/page";
 import ProfilePage from "./pages/ProfilePage";
 
 const App: React.FC = () => {
-  const [currentPage, setCurrentPage] = useState("home");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  
+  // Get current page from URL or default to 'home'
+  const currentPage = searchParams.get('page') || 'home';
+
+  const handlePageChange = (page: string) => {
+    // Update URL without reloading the page
+    router.push(`/?page=${page}`, { scroll: false });
+  };
 
   const renderPage = () => {
     switch (currentPage) {
@@ -21,7 +29,7 @@ const App: React.FC = () => {
         return <NetworkPage />;
       case "jobs":
         return <JobsPage />;
-      case "messaging":
+      case "chat":
         return <ChatPage />;
       case "profile":
         return <ProfilePage />;
@@ -38,28 +46,25 @@ const App: React.FC = () => {
   };
 
   const handleCreatePost = () => {
-    setIsCreateModalOpen(true);
+    // This will be handled by the HomePage component
+    console.log("Create post clicked");
   };
 
   const handleSearch = (query: string) => {
-    setSearchQuery(query);
-    // You can pass this to HomePage or handle search globally
     console.log("Search query:", query);
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Functional Navbar */}
       <Navbar 
-        onPageChange={setCurrentPage} 
+        onPageChange={handlePageChange} 
         currentPage={currentPage}
         onSearch={handleSearch}
         onCreatePost={handleCreatePost}
         userStats={userStats}
       />
       
-      {/* Scrollable Content Area */}
-      <div className="pt-28">
+      <div>
         {renderPage()}
       </div>
     </div>

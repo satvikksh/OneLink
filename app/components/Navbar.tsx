@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 
 interface NavbarProps {
   onPageChange: (page: string) => void;
@@ -22,14 +22,22 @@ const Navbar: React.FC<NavbarProps> = ({
   onCreatePost,
   userStats 
 }) => {
-  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Safe handler for page changes
+  const handlePageChange = (page: string) => {
+    if (onPageChange && typeof onPageChange === 'function') {
+      onPageChange(page);
+    } else {
+      console.warn('onPageChange is not available');
+    }
+  };
 
   const navItems = [
     { key: "home", icon: "🏠", label: "Home" },
     { key: "network", icon: "👥", label: "My Network" },
     { key: "jobs", icon: "💼", label: "Jobs" },
-    { key: "messaging", icon: "💬", label: "Messaging" },
+    { key: "chat", icon: "💬", label: "Messaging" },
     { key: "notifications", icon: "🔔", label: "Notifications" },
   ];
 
@@ -40,7 +48,7 @@ const Navbar: React.FC<NavbarProps> = ({
   };
 
   const handleProfileClick = () => {
-    onPageChange("profile");
+    handlePageChange("profile");
   };
 
   const handleBusinessClick = () => {
@@ -58,20 +66,20 @@ const Navbar: React.FC<NavbarProps> = ({
         <div className="flex items-center justify-between h-14 px-4">
           {/* Left Section - Logo & Search */}
           <div className="flex items-center space-x-4 flex-1">
-            {/* Logo */}
+            {/* Logo - FIXED SYNTAX */}
             <button 
-              onClick={() => onPageChange("home")}
+              onClick={() => handlePageChange("home")}
               className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
             >
-              <div className="w-8 h-8 bg-blue-600 rounded-sm flex items-center justify-center">
-                <span className="text-white font-bold text-lg">in</span>
+              <div className="w-8 h-8 bg-sky-600 rounded-sm flex items-center justify-center">
+                <span className="text-white font-bold text-lg">1L</span>
               </div>
             </button>
             
             {/* Search Bar - Functional */}
-            <div className="flex-1 max-w-md">
+            <div className="flex-1 max-w-md text-black">
               <div className="relative">
-                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
+                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-black-00">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
@@ -92,7 +100,7 @@ const Navbar: React.FC<NavbarProps> = ({
             {navItems.map((item) => (
               <button
                 key={item.key}
-                onClick={() => onPageChange(item.key)}
+                onClick={() => handlePageChange(item.key)}
                 className={`flex flex-col items-center px-4 py-2 rounded-md min-w-16 transition-all ${
                   currentPage === item.key
                     ? "text-gray-900"
@@ -129,13 +137,13 @@ const Navbar: React.FC<NavbarProps> = ({
             </button>
 
             {/* Create Post Button - Functional */}
-            <button
+            {/* <button
               onClick={onCreatePost}
               className="bg-blue-600 text-white px-4 py-1.5 rounded-full hover:bg-blue-700 transition-colors text-sm font-medium flex items-center space-x-1"
             >
               <span>+</span>
               <span>Post</span>
-            </button>
+            </button> */}
 
             {/* User Profile - Functional */}
             <button 
