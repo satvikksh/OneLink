@@ -1,52 +1,69 @@
 "use client";
 
 import React, { useState } from "react";
-import Sidebar from "./Sidebar";
-import Feed from "./components/Feed";   // ✅ ab safe
+import Navbar from "./components/Navbar";
+import HomePage from "./pages/HomePage";
+import NetworkPage from "./pages/NetworkPage";
+import JobsPage from "./jobs/page";
+import ChatPage from "./chat/page";
+import ProfilePage from "./pages/ProfilePage";
 
-interface Post {
-  id: number;
-  user: string;
-  title: string;
-  content: string;
-  avatar: string;
-  timestamp: string;
-}
+const App: React.FC = () => {
+  const [currentPage, setCurrentPage] = useState("home");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-interface User {
-  id: number;
-  name: string;
-  title: string;
-  avatar: string;
-}
+  const renderPage = () => {
+    switch (currentPage) {
+      case "home":
+        return <HomePage />;
+      case "network":
+        return <NetworkPage />;
+      case "jobs":
+        return <JobsPage />;
+      case "messaging":
+        return <ChatPage />;
+      case "profile":
+        return <ProfilePage />;
+      default:
+        return <HomePage />;
+    }
+  };
 
-const postsData: Post[] = [
-  { id: 1, user: "Alice Johnson", title: "Excited to start my new role!", content: "Today I joined XYZ Corp as a Software Engineer.", avatar: "/avatars/alice.jpg", timestamp: "2h ago" },
-  { id: 2, user: "Bob Smith", title: "Project Launch", content: "Our team successfully launched the new feature.", avatar: "/avatars/bob.jpg", timestamp: "5h ago" },
-];
+  // Mock user stats
+  const userStats = {
+    totalPosts: 15,
+    totalLikes: 124,
+    totalConnections: 423
+  };
 
-const suggestedUsers: User[] = [
-  { id: 1, name: "Charlie Brown", title: "UI/UX Designer", avatar: "/avatars/charlie.jpg" },
-  { id: 2, name: "David Lee", title: "Backend Developer", avatar: "/avatars/david.jpg" },
-];
+  const handleCreatePost = () => {
+    setIsCreateModalOpen(true);
+  };
 
-const HomePage: React.FC = () => {
-  const [posts] = useState<Post[]>(postsData);
-  const [suggestions, setSuggestions] = useState<User[]>(suggestedUsers);
-
-  const addConnection = (user: User) => {
-    setSuggestions(suggestions.filter((u) => u.id !== user.id));
-    alert(`${user.name} added to connections!`);
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    // You can pass this to HomePage or handle search globally
+    console.log("Search query:", query);
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <main className="max-w-6xl mx-auto mt-6 flex gap-6">
-        <Feed posts={posts} />  
-        <Sidebar suggestions={suggestions} addConnection={addConnection} />
-      </main>
+    <div className="min-h-screen bg-gray-50">
+      {/* Functional Navbar */}
+      <Navbar 
+        onPageChange={setCurrentPage} 
+        currentPage={currentPage}
+        onSearch={handleSearch}
+        onCreatePost={handleCreatePost}
+        userStats={userStats}
+      />
+      
+      {/* Scrollable Content Area */}
+      <div className="pt-28">
+        {renderPage()}
+      </div>
     </div>
   );
 };
 
-export default HomePage;
+export default App;
