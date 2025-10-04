@@ -9,6 +9,7 @@ import JobsPage from "./jobs/page";
 import ChatPage from "./chat/page";
 import ProfilePage from "./pages/ProfilePage";
 import Notification from "./pages/Notification";
+import Footer from "../components/Footer";
 const App: React.FC = () => {
   const searchParams = useSearchParams();
   const router = useRouter();

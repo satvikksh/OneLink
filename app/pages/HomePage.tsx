@@ -6,6 +6,7 @@ import Feed from "../components/Feed";
 import CreatePostModal from "../components/CreatePostModal";
 import Navbar from "../components/Navbar";
 import { Post, User, Connection } from "../components/types";
+import Footer from "../components/Footer";
 
 // Mock data - Only posts and suggestions remain predefined
 
@@ -718,6 +719,7 @@ const HomePage: React.FC = () => {
       <main style={{ paddingTop: `${ 16}px` }} className="max-w-7xl mx-auto flex gap-6 px-4">
         {renderPageContent()}
       </main>
+  <Footer />
 
       {/* Create Post Modal */}
       {currentUser && (
