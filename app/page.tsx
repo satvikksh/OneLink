@@ -8,7 +8,7 @@ import NetworkPage from "./pages/NetworkPage";
 import JobsPage from "./jobs/page";
 import ChatPage from "./chat/page";
 import ProfilePage from "./pages/ProfilePage";
-
+import Notification from "./pages/Notification";
 const App: React.FC = () => {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -33,6 +33,8 @@ const App: React.FC = () => {
         return <ChatPage />;
       case "profile":
         return <ProfilePage />;
+         case "notifications":
+        return <Notification />;
       default:
         return <HomePage />;
     }

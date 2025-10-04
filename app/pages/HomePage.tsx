@@ -154,7 +154,7 @@ const HomePage: React.FC = () => {
   }), []);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 text-gray-900">
       {/* Remove top padding/margin since navbar is fixed */}
       <main className="max-w-7xl mx-auto flex gap-6 px-4">
         {/* Left Sidebar - Profile & Connections */}
@@ -255,7 +255,7 @@ const HomePage: React.FC = () => {
         {/* Main Feed */}
         <div className="flex-1 max-w-2xl">
           {/* Create Post Card */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6 te">
             <div className="flex items-center space-x-4 mb-4">
               <img
                 src={currentUser.avatar}
