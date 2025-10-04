@@ -349,13 +349,13 @@ const NotificationsPage: React.FC = () => {
         userStats={userStats}
       />
       
-      <div className="pt-28 pb-8">
+      <div className="pt-5 pb-8">
         <div className="max-w-4xl mx-auto px-4">
           {/* Header */}
           <div className="mb-8">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">Notifications</h1>
+              
                 <p className="text-gray-600">
                   {unreadCount > 0 
                     ? `${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}`
@@ -377,7 +377,8 @@ const NotificationsPage: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Filters Sidebar */}
             <div className="lg:col-span-1">
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sticky top-24">
+                <h1 className="text-3xl font-bold text-gray-900 mb-2 sticky top-24">Notifications</h1>
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sticky top-44">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Filters</h3>
                 
                 {/* Filter Options */}
@@ -436,7 +437,7 @@ const NotificationsPage: React.FC = () => {
             {/* Notifications List */}
             <div className="lg:col-span-3">
               {/* Search Bar */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+              {/* <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
                 <div className="relative">
                   <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -451,7 +452,7 @@ const NotificationsPage: React.FC = () => {
                     className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
-              </div>
+              </div> */}
 
               {/* Notifications */}
               <div className="bg-white rounded-lg shadow-sm border border-gray-200">

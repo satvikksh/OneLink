@@ -324,7 +324,7 @@ const JobsPage: React.FC = () => {
         userStats={userStats}
       />
       
-      <div className="pt-28 pb-8">
+      <div className="pt-5 pb-8">
         <div className="max-w-7xl mx-auto px-4">
           {/* Header */}
           <div className="mb-8">
