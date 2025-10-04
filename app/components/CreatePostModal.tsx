@@ -1,24 +1,24 @@
 "use client";
 
 import React, { useState } from "react";
-import { Post } from "./types";
+import { Post, User } from "./types";
 
 interface CreatePostModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (post: Omit<Post, "id" | "timestamp" | "likes" | "comments" | "shares" | "isLiked">) => void;
+  onSubmit: (post: Omit<Post, "id" | "timestamp" | "likes" | "comments" | "shares" | "isLiked" | "user" | "avatar">) => void;
+  currentUser: User | null;
 }
 
-const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onSubmit }) => {
+const CreatePostModal: React.FC<CreatePostModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  onSubmit,
+  currentUser 
+}) => {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const currentUser = {
-    name: "You",
-    avatar: "/avatars/current-user.jpg",
-    title: "Software Developer"
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,16 +28,19 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onSu
       return;
     }
 
+    if (!currentUser) {
+      alert("Please create your profile first");
+      return;
+    }
+
     setIsSubmitting(true);
     
     try {
       await new Promise(resolve => setTimeout(resolve, 500));
       
       onSubmit({
-        user: currentUser.name,
         title: title.trim(),
         content: content.trim(),
-        avatar: currentUser.avatar
       });
 
       setTitle("");
@@ -53,6 +56,8 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onSu
 
   const handleClose = () => {
     if (!isSubmitting) {
+      setTitle("");
+      setContent("");
       onClose();
     }
   };
@@ -75,17 +80,25 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onSu
           </button>
         </div>
 
-        <div className="flex items-center space-x-3 p-6 border-b border-gray-200">
-          <img
-            src={currentUser.avatar}
-            alt={currentUser.name}
-            className="w-10 h-10 rounded-full"
-          />
-          <div>
-            <p className="font-semibold text-gray-800">{currentUser.name}</p>
-            <p className="text-sm text-gray-500">{currentUser.title}</p>
+        {currentUser ? (
+          <div className="flex items-center space-x-3 p-6 border-b border-gray-200">
+            <img
+              src={currentUser.avatar}
+              alt={currentUser.name}
+              className="w-10 h-10 rounded-full"
+            />
+            <div>
+              <p className="font-semibold text-gray-800">{currentUser.name}</p>
+              <p className="text-sm text-gray-500">{currentUser.title}</p>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="p-6 border-b border-gray-200 bg-yellow-50">
+            <p className="text-yellow-700 text-sm">
+              Please create your profile first to start posting.
+            </p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="p-6">
           <div className="space-y-4">
@@ -100,7 +113,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onSu
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="What's the title of your post?"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                disabled={isSubmitting}
+                disabled={isSubmitting || !currentUser}
                 maxLength={100}
               />
               <div className="text-xs text-gray-500 text-right mt-1">
@@ -119,7 +132,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onSu
                 placeholder="What's on your mind?"
                 rows={6}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                disabled={isSubmitting}
+                disabled={isSubmitting || !currentUser}
                 maxLength={500}
               />
               <div className="text-xs text-gray-500 text-right mt-1">
@@ -139,7 +152,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onSu
             </button>
             <button
               type="submit"
-              disabled={!title.trim() || !content.trim() || isSubmitting}
+              disabled={!title.trim() || !content.trim() || isSubmitting || !currentUser}
               className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 flex items-center space-x-2"
             >
               {isSubmitting ? (

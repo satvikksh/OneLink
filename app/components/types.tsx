@@ -12,10 +12,12 @@ export interface Post {
 }
 
 export interface User {
-  id: number;
+  id?: number;
   name: string;
   title: string;
   avatar: string;
+  profileViews?: number;
+  postImpressions?: number;
   mutualConnections?: number;
 }
 
