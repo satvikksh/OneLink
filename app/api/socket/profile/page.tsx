@@ -1,14 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import ProfileHeader from '../components/ProfileHeader';
-import AboutSection from '../components/AboutSection';
-import ExperienceSection from '../components/ExperienceSection';
-import EducationSection from '../components/EducationSection';
-import SkillsSection from '../components/SkillsSection';
-import StatsSection from '../components/StatsSection';
-import EditCoverModal from '../components/EditCoverModal';
-import EditProfilePhotoModal from '../components/EditProfilePhotoModal';
+import ProfileHeader from '../../../components/ProfileHeader';
+import AboutSection from '../../../components/AboutSection';
+import ExperienceSection from '../../../components/ExperienceSection';
+import EducationSection from '../../../components/EducationSection';
+import SkillsSection from '../../../components/SkillsSection';
+import StatsSection from '../../../components/StatsSection';
+import EditCoverModal from '../../../components/EditCoverModal';
+import EditProfilePhotoModal from '../../../components/EditProfilePhotoModal';
 
 export interface UserProfile {
   id: string;
@@ -49,13 +49,13 @@ export interface Education {
 const ProfilePage = () => {
   const [profile, setProfile] = useState<UserProfile>({
     id: '1',
-    name: 'Satvik Kushwaha',
+    name: 'Alex Johnson',
     headline: 'Senior Software Engineer | React & Next.js Specialist',
-    location: 'Bhopal , India',
+    location: 'San Francisco, California',
     about: 'Passionate software engineer with 8+ years of experience building scalable web applications. Specialized in React, Next.js, and TypeScript. Love mentoring junior developers and contributing to open source projects.',
-    email: 'satvikksh@zohomail.in',
-    phone: '+91 7580915543',
-    website: 'satviksgroup.netlify.app',
+    email: 'alex.johnson@example.com',
+    phone: '+1 (555) 123-4567',
+    website: 'alexjohnson.dev',
     connections: 543,
     profileViews: 1287,
     profileImage: '/api/placeholder/150/150',

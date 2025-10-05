@@ -7,9 +7,10 @@ import HomePage from "./pages/HomePage";
 import NetworkPage from "./pages/NetworkPage";
 import JobsPage from "./jobs/page";
 import ChatPage from "./chat/page";
-import ProfilePage from "./pages/ProfilePage";
 import Notification from "./pages/Notification";
-import Footer from "../components/Footer";
+import Footer from "./components/Footer";
+import ProfilePage from "./pages/ProfilePage";
+import dynamic from 'next/dynamic';
 const App: React.FC = () => {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -33,8 +34,8 @@ const App: React.FC = () => {
       case "chat":
         return <ChatPage />;
       case "profile":
-        return <ProfilePage />;
-         case "notifications":
+        return <ProfilePage />; 
+      case "notifications":
         return <Notification />;
       default:
         return <HomePage />;
