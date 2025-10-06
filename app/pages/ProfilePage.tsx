@@ -66,8 +66,8 @@ const ProfilePage = () => {
     {
       id: '1',
       title: 'Senior Software Engineer',
-      company: 'TechCorp Inc.',
-      location: 'San Francisco, CA',
+      company: 'Satviksgroup Inc.',
+      location: 'Bhopal, India',
       startDate: '2022-03',
       endDate: 'Present',
       current: true,
@@ -76,8 +76,8 @@ const ProfilePage = () => {
     {
       id: '2',
       title: 'Software Engineer',
-      company: 'StartupXYZ',
-      location: 'San Francisco, CA',
+      company: 'OneLink Solutions',
+      location: 'Pune, India',
       startDate: '2020-01',
       endDate: '2022-02',
       current: false,
