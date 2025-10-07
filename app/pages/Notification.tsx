@@ -340,7 +340,7 @@ const NotificationsPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-200">
       <Navbar 
         onPageChange={handlePageChange}
         currentPage={currentPage}
@@ -356,7 +356,7 @@ const NotificationsPage: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
               
-                <p className="text-gray-600">
+                <p className="text-gray-700">
                   {unreadCount > 0 
                     ? `${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}`
                     : "All caught up!"
