@@ -366,7 +366,7 @@ const NotificationsPage: React.FC = () => {
               {unreadCount > 0 && (
                 <button
                   onClick={markAllAsRead}
-                  className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
+                  className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-300 transition-colors text-sm font-medium"
                 >
                   Mark all as read
                 </button>
@@ -403,7 +403,7 @@ const NotificationsPage: React.FC = () => {
                       {filter.count > 0 && (
                         <span className={`text-xs rounded-full px-2 py-1 ${
                           activeFilter === filter.key
-                            ? "bg-blue-100 text-blue-600"
+                            ? "bg-blue-200 text-blue-700"
                             : "bg-gray-100 text-gray-600"
                         }`}>
                           {filter.count}
