@@ -307,7 +307,7 @@ const NetworkPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-100">
       <Navbar 
         onPageChange={handlePageChange}
         currentPage={currentPage}
@@ -322,7 +322,7 @@ const NetworkPage: React.FC = () => {
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">My Network</h1>
-            <div className="flex items-center space-x-6 text-sm text-gray-600">
+            <div className="flex items-center space-x-6 text-sm text-gray-700">
               <span><strong>{connections.length}</strong> connections</span>
               <span><strong>{invitations.length}</strong> pending invitations</span>
               <span><strong>{suggestedPeople.length}</strong> people you may know</span>
@@ -330,7 +330,7 @@ const NetworkPage: React.FC = () => {
           </div>
 
           {/* Tabs */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-300 mb-6">
             <div className="border-b border-gray-200">
               <div className="flex space-x-8 px-6">
                 {[
