@@ -88,23 +88,23 @@ const ProfileHeader = ({ profile, onEditProfilePhoto, onUpdateProfile }: Profile
           </div>
 
           {/* Contact Info */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 pt-6 border-t border-gray-200">
-            <div className="flex items-center gap-2 text-gray-600">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 pt-6 border-t border-gray-300">
+            <div className="flex items-center gap-2 text-gray-700">
               <Mail size={16} />
               <span>{profile.email}</span>
             </div>
-            <div className="flex items-center gap-2 text-gray-600">
+            <div className="flex items-center gap-2 text-gray-700">
               <Phone size={16} />
               <span>{profile.phone}</span>
             </div>
-            <div className="flex items-center gap-2 text-gray-600">
+            <div className="flex items-center gap-2 text-gray-700">
               <Globe size={16} />
               <span>{profile.website}</span>
             </div>
             <div className="md:col-span-3 flex justify-end">
               <button 
                 onClick={() => setShowContactModal(true)}
-                className="text-blue-600 hover:text-blue-700 text-sm flex items-center gap-1"
+                className="text-blue-700 hover:text-blue-700 text-sm flex items-center gap-2"
               >
                 <Edit3 size={14} />
                 Edit Contact Info
