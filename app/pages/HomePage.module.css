@@ -1,0 +1,121 @@
+/* components/HomePage/HomePage.module.css */
+.homepageContainer {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+  /* padding-left: 13%; */
+}
+
+.mainGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  padding: 1rem;
+}
+
+@media (min-width: 1024px) {
+  .mainGrid {
+    grid-template-columns: 320px 1fr 320px;
+    gap: 2rem;
+    padding: 2rem;
+  }
+}
+
+.sidebarCard {
+  transform: translateY(0);
+  transition: all 0.3s ease-in-out;
+}
+
+.sidebarCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.feedItem {
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.profileGradient {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.profileGradientBlue {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+}
+
+.connectionOnline {
+  box-shadow: 0 0 0 2px white, 0 0 0 4px #10b981;
+}
+
+.connectionOffline {
+  box-shadow: 0 0 0 2px white, 0 0 0 4px #6b7280;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .mainGrid {
+    padding: 0.5rem;
+    gap: 1rem;
+  }
+}
+
+/* Loading states for better UX */
+.skeleton {
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Focus management for accessibility */
+.modalFocusTrap:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Custom scroll areas */
+.scrollArea {
+  scrollbar-width: thin;
+  scrollbar-color: #c1c1c1 #f1f1f1;
+}
+
+.scrollArea::-webkit-scrollbar {
+  width: 4px;
+}
+
+.scrollArea::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 2px;
+}
+
+.scrollArea::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 2px;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .sidebarCard,
+  .feedItem {
+    transition: none;
+    animation: none;
+  }
+}

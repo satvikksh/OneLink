@@ -359,7 +359,7 @@ const NetworkPage: React.FC = () => {
             </div>
 
             {/* Search Bar */}
-            <div className="p-6 border-b border-gray-200">
+            {/* <div className="p-6 border-b border-gray-200">
               <div className="relative max-w-md">
                 <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -374,7 +374,7 @@ const NetworkPage: React.FC = () => {
                   className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
-            </div>
+            </div> */}
 
             {/* Tab Content */}
             <div className="p-6">

@@ -83,15 +83,25 @@ const Navbar: React.FC<NavbarProps> = ({
             </button>
 
             {/* Logo */}
-            <button 
-              onClick={() => handlePageChange("home")}
-              className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
-            >
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-blue-800 rounded-sm flex items-center justify-center">
-                <span className="text-white font-bold text-lg">1L</span>
-              </div>
-              <span className="hidden sm:block text-xl font-bold text-gray-900">OneLink</span>
-            </button>
+           <button
+  onClick={() => handlePageChange("home")}
+  className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
+>
+  {/* 🔹 Logo Section */}
+  <div className="w-10 h-10 flex items-center justify-center rounded-sm overflow-hidden">
+    <img
+      src="/logo.png" // ← replace with your image path
+      alt="OneLink Logo"
+      className="w-full h-full object-cover"
+    />
+  </div>
+
+  {/* 🔹 App Name Text */}
+  <span className="hidden sm:block text-xl font-bold text-gray-900">
+    OneLink
+  </span>
+</button>
+
           </div>
 
           {/* Center Section - Search Bar (Desktop) */}
