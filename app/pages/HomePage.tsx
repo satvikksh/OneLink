@@ -392,13 +392,13 @@ const CreatePostPrompt: React.FC<{
         </div>
         <button
           onClick={onCreateClick}
-          className="flex-1 text-left px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-full text-gray-500 transition-colors"
+          className="flex-1 text-left px-4 py-3 bg-gray-200 hover:bg-gray-300 rounded-full text-gray-600 transition-colors"
         >
           Start a post...
         </button>
       </div>
       
-      <div className="flex justify-around border-t border-gray-100 pt-3">
+      <div className="flex justify-around border-t border-gray-200 pt-3">
         {POST_ACTIONS.map((item, index) => (
           <button
             key={index}
