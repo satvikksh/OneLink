@@ -398,7 +398,7 @@ const CreatePostPrompt: React.FC<{
         </button>
       </div>
       
-      <div className="flex justify-around border-t border-gray-100 pt-3">
+      <div className="flex justify-around border-t border-gray-200 pt-3">
         {POST_ACTIONS.map((item, index) => (
           <button
             key={index}
