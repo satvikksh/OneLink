@@ -387,7 +387,7 @@ const CreatePostPrompt: React.FC<{
   return (
     <div className="card mb-6">
       <div className="flex items-center space-x-4 mb-4">
-        <div className="avatar-placeholder w-12 h-12 text-white">
+        <div className="avatar-placeholder w-13 h-13 text-white">
           {user.name.charAt(0)}
         </div>
         <button
