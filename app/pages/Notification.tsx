@@ -414,7 +414,7 @@ const NotificationsPage: React.FC = () => {
                 </div>
 
                 {/* Quick Actions */}
-                <div className="mt-6 pt-6 border-t border-gray-200">
+                <div className="mt-6 pt-6 border-t border-gray-300">
                   <h4 className="text-sm font-medium text-gray-700 mb-3">Quick Actions</h4>
                   <div className="space-y-2">
                     <button
