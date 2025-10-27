@@ -403,7 +403,7 @@ const NotificationsPage: React.FC = () => {
                       {filter.count > 0 && (
                         <span className={`text-xs rounded-full px-2 py-1 ${
                           activeFilter === filter.key
-                            ? "bg-blue-200 text-blue-700"
+                            ? "bg-blue-100 text-blue-600"
                             : "bg-gray-100 text-gray-700"
                         }`}>
                           {filter.count}
