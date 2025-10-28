@@ -88,11 +88,11 @@ const ProfilePage = () => {
   const [education, setEducation] = useState<Education[]>([
     {
       id: '1',
-      school: 'Stanford University',
-      degree: 'Master of Science',
+      school: 'LNCT group of colleges',
+      degree: 'Computer Science',
       field: 'Computer Science',
-      startDate: '2018-09',
-      endDate: '2020-05',
+      startDate: '2024-09',
+      endDate: '2027-05',
       current: false
     },
     {
