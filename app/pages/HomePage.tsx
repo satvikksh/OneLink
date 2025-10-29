@@ -357,7 +357,7 @@ const ProfileModal: React.FC<{
           </button>
           <button
             onClick={onSave}
-            className="btn btn-primary disabled:bg-blue-300 disabled:cursor-not-allowed"
+            className="btn btn-primary disabled:bg-blue-200 disabled:cursor-not-allowed"
             disabled={!form.name.trim() || !form.title.trim()}
           >
             {isEdit ? "Update Profile" : "Create Profile"}
