@@ -16,7 +16,7 @@ export default function LoadingWrapper({ children }: { children: React.ReactNode
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="w-10 h-10 border-4 border-blue-400 border-dashed rounded-full animate-spin"></div>
-        <span className="ml-3 text-blue-600 font-semibold">Loading...</span>
+        <span className="ml-3 text-blue-500 font-semibold">Loading...</span>
       </div>
     );
   }
