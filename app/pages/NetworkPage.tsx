@@ -46,14 +46,14 @@ const NetworkPage: React.FC = () => {
     {
       id: "1",
       name: "Sarah Wilson",
-      title: "Product Manager at TechCorp",
+      title: "Product Manager at OneLink",
       avatar: "/avatars/sarah.jpg",
       online: true,
       connectedDate: "2 weeks ago"
     },
     {
       id: "2",
-      name: "Alex Johnson",
+      name: "Satvik Kushwaha",
       title: "Senior Designer",
       avatar: "/avatars/alex.jpg",
       online: false,
