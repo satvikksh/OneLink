@@ -23,7 +23,7 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -36,7 +36,7 @@ export default function LoginPage() {
 
       setSuccess("Login successful 🎉 Redirecting...");
       // Example: redirect after success
-      // setTimeout(() => window.location.href = "/", 1500);
+      setTimeout(() => window.location.href = "/", 100);
 
     } catch (err: any) {
       setError(err.message || "Something went wrong");
