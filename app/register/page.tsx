@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation"; // ✅ add
 
 type FormState = {
   name: string;
@@ -31,6 +32,7 @@ function barStyle(i: number, score: number) {
 }
 
 export default function RegisterPage() {
+  const router = useRouter(); // ✅ add
   const [form, setForm] = useState<FormState>({
     name: "",
     username: "",
@@ -87,7 +89,8 @@ export default function RegisterPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setSuccess(null);
+
+
     const v = validate();
     setErrors(v);
     if (Object.keys(v).length) return;
@@ -103,7 +106,6 @@ export default function RegisterPage() {
       role: form.role,
     };
 
-    // Optional: allow custom API base via env without code changes
     const API_BASE =
       (typeof window !== "undefined" && (window as any).NEXT_PUBLIC_API_BASE) ||
       process.env.NEXT_PUBLIC_API_BASE ||
@@ -120,7 +122,6 @@ export default function RegisterPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-        // no-store not needed for POST, but safe if proxies misbehave
         cache: "no-store",
         signal: ctrl.signal,
       });
@@ -133,12 +134,14 @@ export default function RegisterPage() {
       }
 
       if (!res.ok) {
-        // Surface backend error (e.g., "Email already registered.")
         setErrors({ global: data?.error || `Registration failed (HTTP ${res.status}).` });
         return;
       }
 
-      setSuccess("Account created successfully 🎉 You can sign in now.");
+      // ✅ success → optional banner here, but we’ll redirect shortly
+      setSuccess("Account created successfully 🎉 Redirecting to sign in…");
+
+      // Clear form
       setForm({
         name: "",
         username: "",
@@ -148,6 +151,15 @@ export default function RegisterPage() {
         role: "student",
         accept: false,
       });
+
+      // ✅ redirect (prefer API-provided target, else fallback with a helpful flag)
+      const redirectTo = (data && data.redirect) || "/login?registered=1";
+      // small delay so users see the success message
+      setTimeout(() => {
+        router.push(redirectTo);
+        // or use replace to prevent back navigation to register:
+        // router.replace(redirectTo);
+      }, 900);
     } catch (err: any) {
       if (err?.name === "AbortError") {
         setErrors({ global: "Request timed out. Check your connection and try again." });
@@ -378,6 +390,8 @@ export default function RegisterPage() {
                 className="mt-6 w-full inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 text-white px-4 py-2.5 font-medium hover:bg-blue-700 disabled:opacity-60"
               >
                 {loading ? "Creating account…" : "Create account"}
+          
+
               </button>
 
               <div className="mt-4 grid grid-cols-3 items-center gap-3">
