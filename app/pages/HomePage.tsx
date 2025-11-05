@@ -1,772 +1,578 @@
 "use client";
 
-import React, { useState, useCallback, useMemo, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import Feed from "../components/Feed";
-import CreatePostModal from "../components/CreatePostModal";
-import Navbar from "../components/Navbar";
-import { Post, User, Connection } from "../components/types";
-import Footer from "../components/Footer";
-import styles from "./HomePage.module.css";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 
-// ============================================================================
-// TYPES
-// ============================================================================
+/* ============= Types ============= */
+type UIPost = {
+  mongoId: string;
+  id: number;
+  user: string;
+  avatar: string;
+  title: string;
+  content: string;
+  timestamp: string;
+  likes: number;
+  comments: number;
+  shares: number;
+  isLiked: boolean;
+  createdAt?: string;
+};
 
-interface CurrentUser {
+type SuggestUser = { 
+  id: number; 
+  name: string; 
+  title: string; 
+  avatar?: string; 
+  mutual?: number 
+};
+
+type Connection = SuggestUser & { online?: boolean };
+
+type Profile = {
   name: string;
   title: string;
   avatar: string;
   profileViews: number;
   postImpressions: number;
-}
-
-interface ProfileForm {
-  name: string;
-  title: string;
-  avatar: string;
-}
-
-type FilterType = "all" | "connections" | "popular";
-type PageType = "home" | "network" | "jobs" | "chat" | "notifications" | "profile";
-
-// ============================================================================
-// CONSTANTS
-// ============================================================================
-
-const INITIAL_POSTS: Post[] = [
-  { 
-    id: 1, 
-    user: "Alice Johnson", 
-    title: "Excited to start my new role!", 
-    content: "Today I joined XYZ Corp as a Software Engineer. Looking forward to this new journey and working with amazing colleagues! 🚀", 
-    avatar: "/avatars/alice.jpg", 
-    timestamp: "2h ago",
-    likes: 15,
-    comments: 3,
-    shares: 2,
-    isLiked: false
-  },
-  { 
-    id: 2, 
-    user: "Bob Smith", 
-    title: "Project Launch Success!", 
-    content: "Our team successfully launched the new AI-powered feature. Great collaboration everyone! The feedback has been incredible so far.", 
-    avatar: "/avatars/bob.jpg", 
-    timestamp: "5h ago",
-    likes: 24,
-    comments: 7,
-    shares: 4,
-    isLiked: true
-  },
-  { 
-    id: 3, 
-    user: "Sarah Chen", 
-    title: "Just completed an amazing course!", 
-    content: "Finished the Advanced React Patterns course. Highly recommend it for anyone looking to level up their frontend skills! #Learning #React", 
-    avatar: "/avatars/sarah.jpg", 
-    timestamp: "1d ago",
-    likes: 42,
-    comments: 12,
-    shares: 8,
-    isLiked: false
-  },
-];
-
-const SUGGESTED_USERS: User[] = [
-  { id: 1, name: "Charlie Brown", title: "UI/UX Designer at TechCorp", avatar: "/avatars/charlie.jpg", mutualConnections: 4 },
-  { id: 2, name: "David Lee", title: "Backend Developer", avatar: "/avatars/david.jpg", mutualConnections: 2 },
-  { id: 3, name: "Eva Garcia", title: "Frontend Developer", avatar: "/avatars/eva.jpg", mutualConnections: 6 },
-  { id: 4, name: "Mike Wilson", title: "Product Manager", avatar: "/avatars/mike.jpg", mutualConnections: 3 },
-];
-
-const TRENDING_HASHTAGS = ["#Programming", "#Tech", "#Career", "#WebDevelopment", "#JavaScript"];
-
-const FILTER_OPTIONS = [
-  { key: "all" as const, label: "All Posts" },
-  { key: "popular" as const, label: "Most Popular" },
-  { key: "connections" as const, label: "Connections" },
-];
-
-const POST_ACTIONS = [
-  { icon: "📷", label: "Photo" },
-  { icon: "🎥", label: "Video" },
-  { icon: "📄", label: "Document" },
-  { icon: "📊", label: "Poll" },
-];
-
-const PAGE_ICONS: Record<PageType, string> = {
-  home: "🏠",
-  network: "👥",
-  jobs: "💼",
-  chat: "💬",
-  notifications: "🔔",
-  profile: "👤"
 };
 
-// ============================================================================
-// UTILITY HOOKS
-// ============================================================================
+/* ============= Data ============= */
+const SUGGESTED: SuggestUser[] = [
+  { id: 1, name: "Charlie Brown", title: "UI/UX Designer", mutual: 4 },
+  { id: 2, name: "David Lee", title: "Backend Developer", mutual: 2 },
+  { id: 3, name: "Eva Garcia", title: "Frontend Dev", mutual: 6 },
+  { id: 4, name: "Mike Wilson", title: "Product Manager", mutual: 3 },
+];
 
-const useLocalStorage = <T,>(key: string, initialValue: T) => {
-  const [storedValue, setStoredValue] = useState<T>(initialValue);
-
-  useEffect(() => {
-    try {
-      const item = localStorage.getItem(key);
-      if (item) {
-        setStoredValue(JSON.parse(item));
-      }
-    } catch (error) {
-      console.error(`Error loading ${key} from localStorage:`, error);
-      localStorage.removeItem(key);
-    }
-  }, [key]);
-
-  const setValue = useCallback((value: T | ((val: T) => T)) => {
-    try {
-      const valueToStore = value instanceof Function ? value(storedValue) : value;
-      setStoredValue(valueToStore);
-      localStorage.setItem(key, JSON.stringify(valueToStore));
-    } catch (error) {
-      console.error(`Error saving ${key} to localStorage:`, error);
-    }
-  }, [key, storedValue]);
-
-  return [storedValue, setValue] as const;
-};
-
-// ============================================================================
-// SUB-COMPONENTS
-// ============================================================================
-
-const EmptyProfileCard: React.FC<{ onCreateProfile: () => void }> = ({ onCreateProfile }) => (
-  <div className="card">
-    <div className="h-20 bg-gradient-to-r from-gray-400 to-gray-600" />
-    <div className="px-4 pb-4 text-center">
-      <div className="flex justify-center -mt-8 mb-4">
-        <div className="w-16 h-16 bg-gray-300 rounded-full border-4 border-white flex items-center justify-center">
-          <span className="text-gray-600 text-2xl">?</span>
-        </div>
-      </div>
-      <h2 className="font-bold text-lg text-gray-900 mb-2">Complete Your Profile</h2>
-      <p className="text-gray-600 text-sm mb-4">Create your profile to start connecting and sharing</p>
-      <button onClick={onCreateProfile} className="w-full btn btn-primary">
-        Create Profile
-      </button>
-    </div>
-  </div>
-);
-
-const ProfileCard: React.FC<{ 
-  user: CurrentUser; 
-  onEdit: () => void;
-}> = ({ user, onEdit }) => (
-  <div className={`card sticky top-24 ${styles.sidebarCard}`}>
-    <div className={`h-20 ${styles.profileGradientBlue}`} />
-    <div className="px-4 pb-4">
-      <div className="flex justify-center -mt-8 mb-4">
-        <div className="avatar-placeholder w-16 h-16 text-white text-lg font-semibold">
-          {user.name.charAt(0)}
-        </div>
-      </div>
-      
-      <div className="text-center mb-4">
-        <h2 className="font-bold text-lg text-gray-900">{user.name}</h2>
-        <p className="text-gray-600 text-sm">{user.title}</p>
-      </div>
-
-      <div className="border-t border-gray-100 pt-4 space-y-3">
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-500">Profile Views</span>
-          <span className="font-semibold text-gray-900">{user.profileViews}</span>
-        </div>
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-500">Post Impressions</span>
-          <span className="font-semibold text-gray-900">{user.postImpressions}</span>
-        </div>
-      </div>
-
-      <button
-        onClick={onEdit}
-        className="w-full mt-4 text-center text-blue-500 hover:text-blue-600 text-sm font-medium py-2 border-t border-gray-100"
-      >
-        Edit Profile
-      </button>
-    </div>
-  </div>
-);
-
-const ConnectionsCard: React.FC<{
-  connections: Connection[];
-  onRemove: (id: number) => void;
-}> = ({ connections, onRemove }) => (
-  <div className={`card sticky top-112 ${styles.sidebarCard}`}>
-    <div className="flex justify-between items-center mb-4">
-      <h3 className="font-semibold text-gray-900">Your Connections</h3>
-      <span className="text-blue-500 text-sm font-medium">{connections.length}</span>
-    </div>
-    
-    <div className="space-y-3">
-      {connections.slice(0, 5).map(connection => (
-        <div key={connection.id} className="flex items-center justify-between group">
-          <div className="flex items-center space-x-3">
-            <div className="relative">
-              <div className="avatar-placeholder w-10 h-10 text-white text-sm">
-                {connection.name.charAt(0)}
-              </div>
-              {connection.online && (
-                <div className={`absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white ${styles.connectionOnline}`} />
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-sm text-gray-900 truncate">{connection.name}</p>
-              <p className="text-xs text-gray-500 truncate">{connection.title}</p>
-            </div>
-          </div>
-          <button
-            onClick={() => onRemove(connection.id)}
-            className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all"
-            title="Remove connection"
-            aria-label={`Remove ${connection.name}`}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      ))}
-    </div>
-
-    {connections.length === 0 && (
-      <p className="text-gray-500 text-sm text-center py-4">
-        No connections yet. Start connecting with people!
-      </p>
-    )}
-
-    {connections.length > 5 && (
-      <button className="w-full mt-4 text-center text-blue-500 hover:text-blue-600 text-sm font-medium py-2 border-t border-gray-100">
-        Show all ({connections.length}) connections
-      </button>
-    )}
-  </div>
-);
-
-const TrendingHashtags: React.FC<{ onTagClick: (tag: string) => void }> = ({ onTagClick }) => (
-  <div className={`card sticky top-145 ${styles.sidebarCard}`}>
-    <h3 className="font-semibold text-gray-900 mb-3">Trending Hashtags</h3>
-    <div className="space-y-2">
-      {TRENDING_HASHTAGS.map((tag, index) => (
-        <button
-          key={index}
-          className="tag"
-          onClick={() => onTagClick(tag.replace('#', ''))}
-        >
-          {tag}
-        </button>
-      ))}
-    </div>
-  </div>
-);
-
-const SuggestionsCard: React.FC<{
-  suggestions: User[];
-  onConnect: (user: User) => void;
-  disabled: boolean;
-}> = ({ suggestions, onConnect, disabled }) => (
-  <div className={`card sticky top-24 ${styles.sidebarCard}`}>
-    <h3 className="font-semibold text-gray-900 mb-4">People you may know</h3>
-    <div className="space-y-4">
-      {suggestions.map(user => (
-        <div key={user.id} className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="avatar-placeholder w-12 h-12 text-white text-sm font-semibold">
-              {user.name.charAt(0)}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-sm text-gray-900 truncate">{user.name}</p>
-              <p className="text-xs text-gray-500 truncate">{user.title}</p>
-              {user.mutualConnections && (
-                <p className="text-xs text-blue-500">{user.mutualConnections} mutual connections</p>
-              )}
-            </div>
-          </div>
-          <button
-            onClick={() => onConnect(user)}
-            disabled={disabled}
-            className={`btn btn-ghost ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
-          >
-            Connect
-          </button>
-        </div>
-      ))}
-    </div>
-  </div>
-);
-
-const ProfileModal: React.FC<{
-  isOpen: boolean;
-  form: ProfileForm;
-  onFormChange: (form: ProfileForm) => void;
-  onSave: () => void;
-  onCancel: () => void;
-  isEdit: boolean;
-}> = ({ isOpen, form, onFormChange, onSave, onCancel, isEdit }) => {
-  if (!isOpen) return null;
-
+/* ============= UI Components ============= */
+function Avatar({ letter, size = 40 }: { letter: string; size?: number }) {
   return (
-    <div className="modal-overlay flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg w-full max-w-md mx-auto p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">
-          {isEdit ? "Edit Profile" : "Create Your Profile"}
-        </h2>
-        
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Your Name *
-            </label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={(e) => onFormChange({ ...form, name: e.target.value })}
-              placeholder="Enter your name"
-              className="input"
-              maxLength={50}
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Your Title *
-            </label>
-            <input
-              type="text"
-              value={form.title}
-              onChange={(e) => onFormChange({ ...form, title: e.target.value })}
-              placeholder="e.g., Software Developer"
-              className="input"
-              maxLength={100}
-            />
-          </div>
-        </div>
-
-        <div className="flex justify-end space-x-3 mt-6">
-          <button onClick={onCancel} className="btn btn-secondary">
-            Cancel
-          </button>
-          <button
-            onClick={onSave}
-            className="btn btn-primary disabled:bg-blue-200 disabled:cursor-not-allowed"
-            disabled={!form.name.trim() || !form.title.trim()}
-          >
-            {isEdit ? "Update Profile" : "Create Profile"}
-          </button>
-        </div>
-      </div>
+    <div
+      className="rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-semibold"
+      style={{ width: size, height: size, fontSize: Math.max(12, size / 2.5) }}
+    >
+      {letter.toUpperCase()}
     </div>
   );
-};
+}
 
-const CreatePostPrompt: React.FC<{
-  user: CurrentUser | null;
-  onCreateClick: () => void;
-}> = ({ user, onCreateClick }) => {
-  if (!user) {
+function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`bg-white rounded-xl border border-gray-100 shadow-sm ${className}`}>
+      {children}
+    </div>
+  );
+}
+
+function Button({ 
+  children, 
+  onClick, 
+  variant = "primary", 
+  disabled = false,
+  className = ""
+}: { 
+  children: React.ReactNode; 
+  onClick?: () => void;
+  variant?: "primary" | "ghost" | "soft";
+  disabled?: boolean;
+  className?: string;
+}) {
+  const base = "px-3 py-2 rounded-lg text-sm font-medium transition";
+  const styles = {
+    primary: "bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50",
+    ghost: "bg-transparent text-gray-700 hover:bg-gray-100",
+    soft: "bg-gray-100 text-gray-800 hover:bg-gray-200",
+  }[variant];
+  
+  return (
+    <button 
+      className={`${base} ${styles} ${className}`} 
+      onClick={onClick}
+      disabled={disabled}
+    >
+      {children}
+    </button>
+  );
+}
+
+/* ============= Main Component ============= */
+export default function HomePage() {
+  // State
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [connections, setConnections] = useState<Connection[]>([]);
+  const [suggestions, setSuggestions] = useState<SuggestUser[]>(SUGGESTED);
+  const [posts, setPosts] = useState<UIPost[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  // Modals
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createTitle, setCreateTitle] = useState("");
+  const [createBody, setCreateBody] = useState("");
+  const [editOpen, setEditOpen] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editTitle, setEditTitle] = useState("");
+
+  // Fetch posts
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/posts", { cache: "no-store" });
+        const data = await res.json();
+        const mapped: UIPost[] = data.map((d: any, i: number) => ({
+          mongoId: d._id,
+          id: i + 1,
+          user: d.user,
+          avatar: d.avatar,
+          title: d.title,
+          content: d.content,
+          timestamp: new Date(d.createdAt || Date.now()).toLocaleString(),
+          likes: d.likes ?? 0,
+          comments: Array.isArray(d.comments) ? d.comments.length : (d.comments ?? 0),
+          shares: d.shares ?? 0,
+          isLiked: false,
+          createdAt: d.createdAt,
+        }));
+        setPosts(mapped);
+      } catch (error) {
+        console.error("Failed to fetch posts:", error);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  // Stats
+  const stats = useMemo(() => {
+    if (!profile) return { posts: 0, likes: 0, conns: 0 };
+    return {
+      posts: posts.filter(p => p.user === profile.name).length,
+      likes: posts.reduce((s, p) => s + p.likes, 0),
+      conns: connections.length,
+    };
+  }, [posts, profile, connections.length]);
+
+  /* ============= Actions ============= */
+  const openCreate = useCallback(() => {
+    if (!profile) {
+      setEditName("");
+      setEditTitle("");
+      setEditOpen(true);
+      return;
+    }
+    setCreateTitle("");
+    setCreateBody("");
+    setCreateOpen(true);
+  }, [profile]);
+
+  const submitCreate = useCallback(async () => {
+    if (!profile || !createTitle.trim() || !createBody.trim()) return;
+    
+    const tempId = Date.now();
+    const optimistic: UIPost = {
+      mongoId: `temp-${tempId}`,
+      id: posts.length ? Math.max(...posts.map(p => p.id)) + 1 : 1,
+      user: profile.name,
+      avatar: profile.avatar,
+      title: createTitle.trim(),
+      content: createBody.trim(),
+      timestamp: "Just now",
+      likes: 0,
+      comments: 0,
+      shares: 0,
+      isLiked: false,
+    };
+    
+    setPosts(prev => [optimistic, ...prev]);
+    setCreateOpen(false);
+
+    try {
+      const res = await fetch("/api/posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user: profile.name,
+          title: optimistic.title,
+          content: optimistic.content,
+          avatar: profile.avatar,
+        }),
+      });
+      
+      if (!res.ok) throw new Error("create failed");
+      
+      const created = await res.json();
+      setPosts(prev => {
+        const others = prev.filter(p => p.mongoId !== optimistic.mongoId);
+        return [{
+          mongoId: created._id,
+          id: optimistic.id,
+          user: created.user,
+          avatar: created.avatar,
+          title: created.title,
+          content: created.content,
+          timestamp: new Date(created.createdAt).toLocaleString(),
+          likes: created.likes ?? 0,
+          comments: Array.isArray(created.comments) ? created.comments.length : (created.comments ?? 0),
+          shares: created.shares ?? 0,
+          isLiked: false,
+          createdAt: created.createdAt,
+        }, ...others];
+      });
+      
+      setProfile(p => p ? { ...p, postImpressions: p.postImpressions + 1 } : p);
+    } catch {
+      setPosts(prev => prev.filter(p => p.mongoId !== optimistic.mongoId));
+      alert("Failed to publish post");
+    }
+  }, [profile, createTitle, createBody, posts.length]);
+
+  const onLike = useCallback(async (postId: number) => {
+    const target = posts.find(p => p.id === postId);
+    if (!target) return;
+    
+    setPosts(prev => prev.map(p => 
+      p.id === postId 
+        ? { ...p, likes: p.isLiked ? p.likes - 1 : p.likes + 1, isLiked: !p.isLiked } 
+        : p
+    ));
+    
+    try {
+      await fetch(`/api/posts/${target.mongoId}/like`, { method: "POST" });
+    } catch (error) {
+      console.error("Failed to like:", error);
+    }
+  }, [posts]);
+
+  const onComment = useCallback(async (postId: number, text: string) => {
+    if (!text.trim()) return;
+    
+    const target = posts.find(p => p.id === postId);
+    if (!target) return;
+    
+    setPosts(prev => prev.map(p => 
+      p.id === postId ? { ...p, comments: p.comments + 1 } : p
+    ));
+    
+    try {
+      await fetch(`/api/posts/${target.mongoId}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+    } catch (error) {
+      console.error("Failed to comment:", error);
+    }
+  }, [posts]);
+
+  const onShare = useCallback((postId: number) => {
+    setPosts(prev => prev.map(p => 
+      p.id === postId ? { ...p, shares: p.shares + 1 } : p
+    ));
+  }, []);
+
+  const connectUser = useCallback((u: SuggestUser) => {
+    if (!profile) {
+      setEditOpen(true);
+      return;
+    }
+    setSuggestions(prev => prev.filter(x => x.id !== u.id));
+    setConnections(prev => [...prev, { ...u, online: true }]);
+  }, [profile]);
+
+  const removeConn = useCallback((id: number) => {
+    setConnections(prev => prev.filter(c => c.id !== id));
+  }, []);
+
+  const saveProfile = useCallback(() => {
+    if (!editName.trim() || !editTitle.trim()) return;
+    
+    setProfile({
+      name: editName.trim(),
+      title: editTitle.trim(),
+      avatar: "*",
+      profileViews: profile?.profileViews || 0,
+      postImpressions: profile?.postImpressions || 0,
+    });
+    setEditOpen(false);
+  }, [editName, editTitle, profile]);
+
+  /* ============= UI Components ============= */
+  const FeedItem = React.memo(({ p }: { p: UIPost }) => {
+    const [commentVal, setCommentVal] = useState("");
+    
     return (
-      <div className="card mb-6 text-center">
-        <h3 className="font-semibold text-gray-900 mb-2">Create your profile to start posting</h3>
-        <p className="text-gray-600 text-sm mb-4">Join the conversation by setting up your profile</p>
-        <button onClick={onCreateClick} className="btn btn-primary">
-          Create Profile
-        </button>
+      <Card className="p-4">
+        <div className="flex items-start gap-3">
+          <Avatar letter={p.user[0]} size={42} />
+          <div className="flex-1">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-semibold text-gray-900 leading-tight">{p.user}</div>
+                <div className="text-xs text-gray-500">{p.timestamp}</div>
+              </div>
+            </div>
+            
+            <h3 className="mt-2 font-semibold text-gray-900">{p.title}</h3>
+            <p className="text-gray-700 mt-1 whitespace-pre-wrap">{p.content}</p>
+
+            <div className="flex items-center gap-4 mt-3 text-sm text-gray-600">
+              <button 
+                onClick={() => onLike(p.id)} 
+                className={`hover:text-blue-600 transition ${p.isLiked ? 'text-blue-600 font-medium' : ''}`}
+              >
+                👍 {p.likes}
+              </button>
+              <span>💬 {p.comments}</span>
+              <button onClick={() => onShare(p.id)} className="hover:text-blue-600 transition">
+                ↗ Share ({p.shares})
+              </button>
+            </div>
+
+            <div className="mt-3 flex gap-2">
+              <input
+                value={commentVal}
+                onChange={e => setCommentVal(e.target.value)}
+                onKeyPress={e => e.key === 'Enter' && commentVal.trim() && (onComment(p.id, commentVal), setCommentVal(""))}
+                placeholder="Write a comment…"
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
+              />
+              <Button 
+                variant="soft" 
+                onClick={() => {
+                  if (commentVal.trim()) {
+                    onComment(p.id, commentVal);
+                    setCommentVal("");
+                  }
+                }}
+              >
+                Send
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Card>
+    );
+  });
+
+  /* ============= Render ============= */
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          <div className="animate-pulse space-y-4">
+            <div className="h-32 bg-gray-200 rounded-xl" />
+            <div className="h-48 bg-gray-200 rounded-xl" />
+            <div className="h-48 bg-gray-200 rounded-xl" />
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="card mb-6">
-      <div className="flex items-center space-x-4 mb-4">
-        <div className="avatar-placeholder w-13 h-13 text-white">
-          {user.name.charAt(0)}
-        </div>
-        <button
-          onClick={onCreateClick}
-          className="flex-1 text-left px-4 py-3 bg-gray-200 hover:bg-gray-300 rounded-full text-gray-600 transition-colors"
-        >
-          Start a post...
-        </button>
-      </div>
-      
-      <div className="flex justify-around border-t border-gray-200 pt-3">
-        {POST_ACTIONS.map((item, index) => (
-          <button
-            key={index}
-            className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:bg-gray-60 rounded-md transition-colors"
-          >
-            <span>{item.icon}</span>
-            <span className="text-sm font-medium">{item.label}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-// ============================================================================
-// MAIN COMPONENT
-// ============================================================================
-
-const HomePage: React.FC = () => {
-  const router = useRouter();
-  
-  // State management
-  const [currentUser, setCurrentUser] = useLocalStorage<CurrentUser | null>('userProfile', null);
-  const [connections, setConnections] = useLocalStorage<Connection[]>('userConnections', []);
-  const [posts, setPosts] = useState<Post[]>(INITIAL_POSTS);
-  const [suggestions, setSuggestions] = useState<User[]>(SUGGESTED_USERS);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [activeFilter, setActiveFilter] = useState<FilterType>("all");
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [profileForm, setProfileForm] = useState<ProfileForm>({
-    name: "",
-    title: "",
-    avatar: "*"
-  });
-  const [currentPage, setCurrentPage] = useState<PageType>("home");
-
-  // Navigation handler
-  const handlePageChange = useCallback((page: string) => {
-    const pageType = page as PageType;
-    setCurrentPage(pageType);
-    
-    const url = pageType === "home" ? "/" : `/?page=${pageType}`;
-    router.push(url, { scroll: false });
-
-    if (pageType === "home") {
-      setSearchQuery("");
-      setActiveFilter("all");
-    }
-  }, [router]);
-
-  // Search handler
-  const handleSearch = useCallback((query: string) => {
-    setSearchQuery(query);
-  }, []);
-
-  // Create post handler
-  const handleCreatePost = useCallback(() => {
-    if (!currentUser) {
-      alert("Please create your profile first to post");
-      setIsEditingProfile(true);
-      return;
-    }
-    setIsCreateModalOpen(true);
-  }, [currentUser]);
-
-  // User stats
-  const userStats = useMemo(() => {
-    if (!currentUser) return undefined;
-    
-    return {
-      totalPosts: posts.filter(post => post.user === currentUser.name).length,
-      totalLikes: posts.reduce((sum, post) => sum + post.likes, 0),
-      totalConnections: connections.length
-    };
-  }, [posts, connections, currentUser]);
-
-  // Filtered posts
-  const filteredPosts = useMemo(() => {
-    let filtered = posts;
-    
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(post => 
-        post.title.toLowerCase().includes(query) ||
-        post.content.toLowerCase().includes(query) ||
-        post.user.toLowerCase().includes(query)
-      );
-    }
-
-    if (activeFilter === "connections" && currentUser) {
-      const connectionNames = connections.map(conn => conn.name);
-      filtered = filtered.filter(post => 
-        connectionNames.includes(post.user) && post.user !== currentUser.name
-      );
-    }
-
-    if (activeFilter === "popular") {
-      filtered = [...filtered].sort((a, b) => b.likes - a.likes);
-    }
-
-    return filtered;
-  }, [posts, searchQuery, activeFilter, connections, currentUser]);
-
-  // Connection handlers
-  const handleAddConnection = useCallback((user: User) => {
-    if (!currentUser) {
-      alert("Please create your profile first to connect with others");
-      setIsEditingProfile(true);
-      return;
-    }
-
-    setSuggestions(prev => prev.filter(u => u.id !== user.id));
-    const newConnection: Connection = {
-      ...user, 
-      online: true,
-      id: connections.length > 0 ? Math.max(...connections.map(c => c.id)) + 1 : 1
-    };
-    setConnections(prev => [...prev, newConnection]);
-  }, [connections, currentUser, setConnections]);
-
-  const handleRemoveConnection = useCallback((connectionId: number) => {
-    const removedConnection = connections.find(conn => conn.id === connectionId);
-    if (removedConnection) {
-      setConnections(prev => prev.filter(conn => conn.id !== connectionId));
-      if (SUGGESTED_USERS.some(user => user.id === removedConnection.id)) {
-        setSuggestions(prev => [...prev, removedConnection]);
-      }
-    }
-  }, [connections, setConnections]);
-
-  // Post interaction handlers
-  const handleLike = useCallback((postId: number) => {
-    setPosts(prev => prev.map(post => 
-      post.id === postId 
-        ? { 
-            ...post, 
-            likes: post.isLiked ? post.likes - 1 : post.likes + 1,
-            isLiked: !post.isLiked 
-          }
-        : post
-    ));
-  }, []);
-
-  const handleComment = useCallback((postId: number, comment: string) => {
-    if (!comment.trim()) return;
-    
-    setPosts(prev => prev.map(post => 
-      post.id === postId 
-        ? { ...post, comments: post.comments + 1 }
-        : post
-    ));
-  }, []);
-
-  const handleShare = useCallback((postId: number) => {
-    setPosts(prev => prev.map(post => 
-      post.id === postId 
-        ? { ...post, shares: post.shares + 1 }
-        : post
-    ));
-  }, []);
-
-  // Create post
-  const handleSubmitPost = useCallback((postData: { title: string; content: string }) => {
-    if (!currentUser) return;
-    
-    const newPost: Post = {
-      id: posts.length > 0 ? Math.max(...posts.map(p => p.id)) + 1 : 1,
-      user: currentUser.name,
-      avatar: currentUser.avatar,
-      title: postData.title,
-      content: postData.content,
-      timestamp: "Just now",
-      likes: 0,
-      comments: 0,
-      shares: 0,
-      isLiked: false
-    };
-    
-    setPosts(prev => [newPost, ...prev]);
-    setIsCreateModalOpen(false);
-
-    setCurrentUser(prev => prev ? {
-      ...prev,
-      postImpressions: prev.postImpressions + 1
-    } : null);
-  }, [posts, currentUser, setCurrentUser]);
-
-  // Profile management
-  const handleSaveProfile = useCallback(() => {
-    if (!profileForm.name.trim() || !profileForm.title.trim()) {
-      alert("Please fill in name and title");
-      return;
-    }
-
-    const newUser: CurrentUser = {
-      ...profileForm,
-      profileViews: currentUser?.profileViews || 0,
-      postImpressions: currentUser?.postImpressions || 0
-    };
-    
-    setCurrentUser(newUser);
-    setIsEditingProfile(false);
-    
-    if (!currentUser) {
-      setProfileForm({ name: "", title: "", avatar: "*" });
-    }
-  }, [profileForm, currentUser, setCurrentUser]);
-
-  const handleEditProfile = useCallback(() => {
-    if (currentUser) {
-      setProfileForm({
-        name: currentUser.name,
-        title: currentUser.title,
-        avatar: currentUser.avatar
-      });
-    }
-    setIsEditingProfile(true);
-  }, [currentUser]);
-
-  const handleCancelEdit = useCallback(() => {
-    setIsEditingProfile(false);
-    if (!currentUser) {
-      setProfileForm({ name: "", title: "", avatar: "*" });
-    }
-  }, [currentUser]);
-
-  // Render page content
-  const renderPageContent = () => {
-    if (currentPage !== "home") {
-      return (
-        <div className="flex-1 max-w-4xl mx-auto">
-          <div className="card p-8 text-center">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              {currentPage.charAt(0).toUpperCase() + currentPage.slice(1)} Page
-            </h2>
-            <p className="text-gray-500 mb-4">
-              This is the {currentPage} page. Content would be loaded based on the route.
-            </p>
-            <div className="text-4xl mb-4">{PAGE_ICONS[currentPage]}</div>
-            <button onClick={() => handlePageChange("home")} className="btn btn-primary">
-              Back to Home
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className={styles.mainGrid}>
+    <div className="min-h-screen bg-gray-200 pt-20">
+      <div className="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)_300px] gap-6">
+        
         {/* Left Sidebar */}
-        <aside className="w-80 flex-shrink-0 hidden lg:block space-y-6">
-          {currentUser ? (
-            <>
-              <ProfileCard user={currentUser} onEdit={handleEditProfile} />
-              <ConnectionsCard connections={connections} onRemove={handleRemoveConnection} />
-            </>
-          ) : (
-            <EmptyProfileCard onCreateProfile={() => setIsEditingProfile(true)} />
-          )}
-          <TrendingHashtags onTagClick={setSearchQuery} />
-        </aside>
-
-        {/* Main Feed */}
-        <main className="flex-1 max-w-2xl">
-          <CreatePostPrompt
-            user={currentUser}
-            onCreateClick={currentUser ? handleCreatePost : () => setIsEditingProfile(true)}
-          />
-
-          <div className="flex gap-2 mb-6 overflow-x-auto">
-            {FILTER_OPTIONS.map(filter => (
-              <button
-                key={filter.key}
-                onClick={() => setActiveFilter(filter.key)}
-                className={`px-4 py-2 rounded-full whitespace-nowrap text-sm font-medium transition-colors ${
-                  activeFilter === filter.key
-                    ? "bg-blue-500 text-white"
-                    : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
-                }`}
+        <div className="space-y-6">
+          <Card className="p-4">
+            <div className="flex items-center gap-3 mb-4">
+              <Avatar letter={(profile?.name ?? "?")[0]} size={56} />
+              <div>
+                <div className="font-semibold text-gray-900">{profile?.name ?? "Guest"}</div>
+                <div className="text-sm text-gray-500">{profile?.title ?? "Create your profile"}</div>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="bg-gray-50 rounded p-2">
+                <div className="text-xs text-gray-500">Views</div>
+                <div className="font-semibold">{profile?.profileViews ?? 0}</div>
+              </div>
+              <div className="bg-gray-50 rounded p-2">
+                <div className="text-xs text-gray-500">Impr.</div>
+                <div className="font-semibold">{profile?.postImpressions ?? 0}</div>
+              </div>
+              <div className="bg-gray-50 rounded p-2">
+                <div className="text-xs text-gray-500">Conn.</div>
+                <div className="font-semibold">{connections.length}</div>
+              </div>
+            </div>
+            
+            <div className="mt-3 flex items-center justify-between text-xs text-gray-600">
+              <span>Posts: <b>{stats.posts}</b></span>
+              <span>Likes: <b>{stats.likes}</b></span>
+            </div>
+            
+            <div className="mt-4 flex gap-2">
+              <Button 
+                variant="primary" 
+                onClick={() => {
+                  setEditName(profile?.name ?? "");
+                  setEditTitle(profile?.title ?? "");
+                  setEditOpen(true);
+                }}
               >
-                {filter.label}
-              </button>
-            ))}
-          </div>
+                {profile ? "Edit Profile" : "Create Profile"}
+              </Button>
+              <Button variant="soft" onClick={openCreate}>New Post</Button>
+            </div>
+          </Card>
 
-          {filteredPosts.length > 0 ? (
-            <div className="space-y-6">
-              {filteredPosts.map(post => (
-                <div key={post.id} className={styles.feedItem}>
-                  <Feed 
-                    posts={[post]}
-                    onLike={handleLike}
-                    onComment={handleComment}
-                    onShare={handleShare}
-                  />
+          <Card className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-900">Connections</h3>
+              <span className="text-xs text-gray-500">{connections.length}</span>
+            </div>
+            <div className="space-y-3">
+              {connections.length === 0 ? (
+                <div className="text-sm text-gray-500 text-center py-4">No connections yet</div>
+              ) : (
+                connections.slice(0, 6).map(c => (
+                  <div key={c.id} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Avatar letter={c.name[0]} size={36} />
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{c.name}</div>
+                        <div className="text-xs text-gray-500 truncate max-w-[150px]">{c.title}</div>
+                      </div>
+                    </div>
+                    <Button variant="ghost" onClick={() => removeConn(c.id)}>Remove</Button>
+                  </div>
+                ))
+              )}
+            </div>
+          </Card>
+        </div>
+
+        {/* Center Feed */}
+        <div>
+          <Card className="p-4 mb-4">
+            <div className="flex items-center gap-3">
+              <Avatar letter={(profile?.name ?? "?")[0]} size={44} />
+              <button
+                onClick={openCreate}
+                className="flex-1 text-left px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-full text-gray-700 transition"
+              >
+                {profile ? "Start a post…" : "Create your profile to post"}
+              </button>
+              <Button variant="soft" onClick={openCreate}>Write</Button>
+            </div>
+          </Card>
+
+          {posts.length > 0 ? (
+            <div className="space-y-4">
+              {posts.map(p => <FeedItem key={`${p.mongoId}-${p.id}`} p={p} />)}
+            </div>
+          ) : (
+            <Card className="p-8 text-center text-gray-600">No posts yet</Card>
+          )}
+        </div>
+
+        {/* Right Sidebar */}
+        <div>
+          <Card className="p-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">People you may know</h3>
+            <div className="space-y-3">
+              {suggestions.map(u => (
+                <div key={u.id} className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <Avatar letter={u.name[0]} size={36} />
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-gray-900 truncate">{u.name}</div>
+                      <div className="text-xs text-gray-500 truncate">{u.title}</div>
+                      {u.mutual ? <div className="text-xs text-blue-600">{u.mutual} mutual</div> : null}
+                    </div>
+                  </div>
+                  <Button variant="soft" onClick={() => connectUser(u)}>Connect</Button>
                 </div>
               ))}
             </div>
-          ) : (
-            <div className="card p-8 text-center">
-              <p className="text-gray-500">
-                {searchQuery 
-                  ? `No posts found for "${searchQuery}"`
-                  : activeFilter === "connections" 
-                    ? "No posts from your connections yet"
-                    : "No posts available"
-                }
-              </p>
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="mt-4 text-blue-500 hover:text-blue-600"
-                >
-                  Clear search
-                </button>
-              )}
-            </div>
-          )}
-        </main>
-
-        {/* Right Sidebar */}
-        <aside className="w-80 flex-shrink-0 hidden lg:block">
-          <SuggestionsCard
-            suggestions={suggestions}
-            onConnect={handleAddConnection}
-            disabled={!currentUser}
-          />
-        </aside>
+          </Card>
+        </div>
       </div>
-    );
-  };
 
-  return (
-    <div className={styles.homepageContainer}>
-      <Navbar
-        onPageChange={handlePageChange}
-        currentPage={currentPage}
-        onSearch={handleSearch}
-        onCreatePost={handleCreatePost}
-        userStats={userStats}
-      />
-
-      <main style={{ paddingTop: '64px' }} className="max-w-7xl mx-auto flex gap-6 px-4">
-        {renderPageContent()}
-      </main>
-
-      <Footer />
-
-      {currentUser && (
-        <CreatePostModal
-          isOpen={isCreateModalOpen}
-          onClose={() => setIsCreateModalOpen(false)}
-          onSubmit={handleSubmitPost}
-          currentUser={currentUser}
-        />
+      {/* Create Post Modal */}
+      {createOpen && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-lg p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <Avatar letter={(profile?.name ?? "?")[0]} size={40} />
+              <div>
+                <div className="font-semibold text-gray-900">{profile?.name ?? "Guest"}</div>
+                <div className="text-xs text-gray-500">{profile?.title ?? ""}</div>
+              </div>
+            </div>
+            
+            <input
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-2 outline-none focus:ring-2 focus:ring-blue-100"
+              placeholder="Title"
+              value={createTitle}
+              onChange={e => setCreateTitle(e.target.value)}
+              maxLength={120}
+            />
+            
+            <textarea
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm h-32 outline-none focus:ring-2 focus:ring-blue-100 resize-none"
+              placeholder="What do you want to talk about?"
+              value={createBody}
+              onChange={e => setCreateBody(e.target.value)}
+            />
+            
+            <div className="mt-3 flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setCreateOpen(false)}>Cancel</Button>
+              <Button 
+                onClick={submitCreate} 
+                disabled={!createTitle.trim() || !createBody.trim()}
+              >
+                Publish
+              </Button>
+            </div>
+          </Card>
+        </div>
       )}
 
-      <ProfileModal
-        isOpen={isEditingProfile}
-        form={profileForm}
-        onFormChange={setProfileForm}
-        onSave={handleSaveProfile}
-        onCancel={handleCancelEdit}
-        isEdit={!!currentUser}
-      />
+      {/* Edit/Create Profile Modal */}
+      {editOpen && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md p-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">
+              {profile ? "Edit profile" : "Create profile"}
+            </h3>
+            
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">Name</label>
+                <input
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  placeholder="Your full name"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">Title</label>
+                <input
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
+                  value={editTitle}
+                  onChange={e => setEditTitle(e.target.value)}
+                  placeholder="e.g., Software Developer"
+                />
+              </div>
+            </div>
+            
+            <div className="mt-3 flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setEditOpen(false)}>Cancel</Button>
+              <Button 
+                onClick={saveProfile} 
+                disabled={!editName.trim() || !editTitle.trim()}
+              >
+                {profile ? "Update" : "Create"}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
-};
-
-export default HomePage;
+}

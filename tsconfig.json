@@ -1,33 +1,31 @@
 {
   "compilerOptions": {
     "target": "ES2017",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
+    "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
     "esModuleInterop": true,
-    "module": "commonjs",
-    "moduleResolution": "node",
+
+    // Next.js recommended
+    "module": "esnext",
+    "moduleResolution": "bundler",
+
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
-    "outDir": "dist",
-    "paths": {
-      "@/*": [
-        "./*"
-      ]
-    },
+
+    // App build output Next khud handle karta hai
     "noEmit": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ]
+
+    // IMPORTANT: alias to your src/*
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+
+    "plugins": [{ "name": "next" }]
   },
   "include": [
     "next-env.d.ts",
@@ -35,8 +33,5 @@
     "**/*.tsx",
     ".next/types/**/*.ts"
   ],
-  "exclude": [
-    "node_modules"
-  ]
-  
+  "exclude": ["node_modules"]
 }
