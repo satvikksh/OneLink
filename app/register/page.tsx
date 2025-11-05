@@ -111,7 +111,7 @@ export default function RegisterPage() {
       process.env.NEXT_PUBLIC_API_BASE ||
       "";
 
-    const url = `${API_BASE}/api/auth/register`;
+    const url = `${API_BASE}/api/register`;
 
     // Abort after 12s to avoid hanging fetch
     const ctrl = new AbortController();
@@ -251,7 +251,7 @@ export default function RegisterPage() {
                     className={`w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 ${
                       errors.name ? "border-red-300 focus:ring-red-100" : "border-slate-300 focus:ring-blue-100"
                     }`}
-                    placeholder="Jane Doe"
+                    placeholder="Satvik kushwaha"
                     autoComplete="name"
                   />
                   {errors.name && <p className="text-xs text-red-600 mt-1">{errors.name}</p>}
@@ -271,7 +271,7 @@ export default function RegisterPage() {
                       className={`w-full rounded-r-lg border px-3 py-2 outline-none focus:ring-2 ${
                         errors.username ? "border-red-300 focus:ring-red-100" : "border-slate-300 focus:ring-blue-100"
                       }`}
-                      placeholder="janedoe"
+                      placeholder="satvik"
                       autoComplete="username"
                     />
                   </div>
@@ -407,7 +407,7 @@ export default function RegisterPage() {
                     type="button"
                     className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50"
                     onClick={() => alert(`${p} auth coming soon`)}
-                  >
+                  > 
                     {p}
                   </button>
                 ))}
