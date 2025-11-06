@@ -1,8 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function LoginPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -23,23 +27,33 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/login", {
+      const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, remember }),
+        credentials: "include", // 👈 ensure cookie is stored
+        cache: "no-store",
       });
 
+      const data = await res.json().catch(() => ({}));
+
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Invalid credentials");
+        throw new Error(data?.error || "Invalid credentials");
       }
 
       setSuccess("Login successful 🎉 Redirecting...");
-      // Example: redirect after success
-      setTimeout(() => window.location.href = "/", 100);
 
+      // next param handle: /login?next=/something
+      const next = searchParams.get("next");
+      const target = data?.redirect || next || "/";
+
+      // small delay to show success state
+      setTimeout(() => {
+        // router.push keeps SPA feel; window.location.href also fine
+        router.push(target);
+      }, 700);
     } catch (err: any) {
-      setError(err.message || "Something went wrong");
+      setError(err?.message || "Something went wrong");
     } finally {
       setLoading(false);
     }

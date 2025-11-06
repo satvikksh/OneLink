@@ -111,7 +111,7 @@ export default function RegisterPage() {
       process.env.NEXT_PUBLIC_API_BASE ||
       "";
 
-    const url = `${API_BASE}/api/register`;
+    const url = `${API_BASE}/api/auth/register`;
 
     // Abort after 12s to avoid hanging fetch
     const ctrl = new AbortController();

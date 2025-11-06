@@ -1,22 +1,20 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { SignJWT } from "jose";  // 👈 Add this import
-import { dbConnect } from "../../src/lib/ConnectDB";   
-import User from "../../src/models/users";  
+import { SignJWT } from "jose";
+import { dbConnect } from "../../../src/lib/ConnectDB";
+import User from "../../../src/models/users";
 
-// 👇 Cookie name constant
+// keep your cookie name
 const COOKIE_NAME = "auth_token";
 
-/**
- * POST /api/auth/login
- * body: { email: string, password: string }
- */
 export async function POST(req: Request) {
   try {
     await dbConnect();
 
     const body = await req.json();
-    const { email, password } = body || {};
+    const email = (body?.email || "").toLowerCase().trim();
+    const password = body?.password || "";
+    const remember: boolean = !!body?.remember; // optional flag from client
 
     if (!email || !password) {
       return NextResponse.json(
@@ -25,41 +23,42 @@ export async function POST(req: Request) {
       );
     }
 
-    // Find user and include password field
-    const user = await User.findOne({ email: email.toLowerCase().trim() }).select("+password");
-
+    // include password (schema likely has select:false)
+    const user = await User.findOne({ email }).select("+password");
     if (!user) {
       return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
     }
 
-    // Compare passwords
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
     }
 
-    // Remove password from returned user object
+    // prepare safe user object
     const userObj = user.toObject();
     delete (userObj as any).password;
 
-    // ✅ Generate JWT Token
+    // JWT
     const secret = new TextEncoder().encode(process.env.JWT_SECRET || "default_secret");
+    const maxAgeSec = remember ? 60 * 60 * 24 * 30 : 60 * 60 * 24; // 30d or 1d
+
     const token = await new SignJWT({
       id: user._id,
       email: user.email,
       role: user.role,
+      username: user.username,
     })
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()
-      .setExpirationTime("1d") // expires in 1 day
+      .setExpirationTime(`${maxAgeSec}s`)
       .sign(secret);
 
-    // ✅ Create response and set secure HTTP-only cookie
+    // success response + cookie
     const res = NextResponse.json(
       {
         message: "Login successful 🎉",
         user: userObj,
-        redirect: "/dashboard",
+        redirect: "/", // ⬅️ send user to HOME after login
       },
       { status: 200 }
     );
@@ -67,16 +66,18 @@ export async function POST(req: Request) {
     res.cookies.set({
       name: COOKIE_NAME,
       value: token,
-      httpOnly: true,          // not accessible from JS
-      secure: process.env.NODE_ENV === "production", // true on https
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 60 * 60 * 24,    // 1 day
+      maxAge: maxAgeSec,
     });
 
-    return res;
+    // avoid caching auth responses
+    res.headers.set("Cache-Control", "no-store");
 
-  } catch (err: any) {
+    return res;
+  } catch (err) {
     console.error("❌ Login Error:", err);
     return NextResponse.json(
       { error: "Something went wrong. Please try again later." },

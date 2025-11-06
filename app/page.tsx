@@ -7,18 +7,15 @@ import dynamic from "next/dynamic";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 
-// ---------- Types ----------
 type PageKey = "home" | "network" | "jobs" | "chat" | "profile" | "notifications";
 
-// ---------- Lazy pages (code-splitting) ----------
-const HomePage        = dynamic(() => import("./pages/HomePage"));
-const NetworkPage     = dynamic(() => import("./pages/NetworkPage"));
-const JobsPage        = dynamic(() => import("./jobs/page"));            // if this is a route, prefer moving to components later
-const ChatPage        = dynamic(() => import("./chat/page"));            // same note as above
-const ProfilePage     = dynamic(() => import("./pages/ProfilePage"));
-const Notification    = dynamic(() => import("./pages/Notification"));
+const HomePage     = dynamic(() => import("./pages/HomePage"));
+const NetworkPage  = dynamic(() => import("./pages/NetworkPage"));
+const JobsPage     = dynamic(() => import("./jobs/page"));
+const ChatPage     = dynamic(() => import("./chat/page"));
+const ProfilePage  = dynamic(() => import("./pages/ProfilePage"));
+const Notification = dynamic(() => import("./pages/Notification"));
 
-// ---------- Registry ----------
 const PAGE_COMPONENTS: Record<PageKey, React.ComponentType> = {
   home: HomePage,
   network: NetworkPage,
@@ -28,7 +25,6 @@ const PAGE_COMPONENTS: Record<PageKey, React.ComponentType> = {
   notifications: Notification,
 };
 
-// ---------- Mini 1s Loader ----------
 function OneSecondLoader() {
   return (
     <div className="min-h-[50vh] flex flex-col items-center justify-center">
@@ -38,7 +34,6 @@ function OneSecondLoader() {
   );
 }
 
-// Skeleton like Next.js loading.tsx style
 function PageSkeleton() {
   return (
     <div className="max-w-6xl mx-auto p-6 animate-pulse">
@@ -62,22 +57,62 @@ const App: React.FC = () => {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  // Read ?page=… and sanitize
+  // 🔐 Auth gate — cookie-based current user
+  const [authLoading, setAuthLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+ useEffect(() => {
+  let active = true;
+  (async () => {
+    try {
+      const res = await fetch("/api/auth/me", {
+        cache: "no-store",
+        credentials: "include", // 👈 cookie bhejo
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!active) return;
+
+      if (!res.ok || !data?.user) {
+        const next =
+          typeof window !== "undefined"
+            ? window.location.pathname + window.location.search
+            : "/";
+        router.replace(`/login?next=${encodeURIComponent(next)}`);
+        return;
+      }
+
+      setCurrentUser(data.user);
+    } catch (e) {
+      const next =
+        typeof window !== "undefined"
+          ? window.location.pathname + window.location.search
+          : "/";
+      router.replace(`/login?next=${encodeURIComponent(next)}`);
+    } finally {
+      if (active) setAuthLoading(false);
+    }
+  })();
+  return () => {
+    active = false;
+  };
+}, [router]);
+
+  // Read ?page= and sanitize
   const rawPage = (searchParams.get("page") || "home").toLowerCase();
   const currentPage: PageKey = useMemo(() => {
     const allowed: PageKey[] = ["home", "network", "jobs", "chat", "profile", "notifications"];
     return (allowed.includes(rawPage as PageKey) ? rawPage : "home") as PageKey;
   }, [rawPage]);
 
-  // Normalize URL if invalid
+  // 🛠 Normalize URL — keep query so tabs work
   useEffect(() => {
     const allowed = new Set(["home", "network", "jobs", "chat", "profile", "notifications"]);
     if (!allowed.has(rawPage)) {
-      router.replace("/?page=home", { scroll: false });
+      router.replace("/?page=home", { scroll: false }); // ← IMPORTANT: include ?page=home
     }
   }, [rawPage, router]);
 
-  // 1-second page-change loader
+  // 1s loader between page changes
   const [showLoader, setShowLoader] = useState(true);
   useEffect(() => {
     setShowLoader(true);
@@ -85,25 +120,26 @@ const App: React.FC = () => {
     return () => clearTimeout(t);
   }, [currentPage]);
 
-  // Handlers for Navbar
   const handlePageChange = (page: string) => {
     router.push(`/?page=${page}`, { scroll: false });
   };
-  const handleCreatePost = () => {
-    console.log("Create post clicked");
-  };
-  const handleSearch = (query: string) => {
-    console.log("Search query:", query);
-  };
+  const handleCreatePost = () => console.log("Create post clicked");
+  const handleSearch = (query: string) => console.log("Search query:", query);
 
-  // Mock user stats
-  const userStats = {
-    totalPosts: 15,
-    totalLikes: 124,
-    totalConnections: 423,
-  };
-
+  const userStats = { totalPosts: 15, totalLikes: 124, totalConnections: 423 };
   const ActivePage = PAGE_COMPONENTS[currentPage];
+
+  // Show loader while checking auth
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <OneSecondLoader />
+      </div>
+    );
+  }
+
+  // If unauthenticated we already redirected
+  if (!currentUser) return null;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -113,10 +149,11 @@ const App: React.FC = () => {
         onSearch={handleSearch}
         onCreatePost={handleCreatePost}
         userStats={userStats}
+        // currentUser={currentUser} // pass if Navbar supports
       />
 
       <Suspense fallback={<PageSkeleton />}>
-        {showLoader ? <OneSecondLoader /> : <ActivePage />}
+        {showLoader ? <OneSecondLoader /> : <ActivePage /* currentUser={currentUser} */ />}
       </Suspense>
 
       <Footer />

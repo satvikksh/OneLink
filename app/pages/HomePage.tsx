@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 /* ============= Types ============= */
 type UIPost = {
@@ -43,6 +44,13 @@ const SUGGESTED: SuggestUser[] = [
   { id: 3, name: "Eva Garcia", title: "Frontend Dev", mutual: 6 },
   { id: 4, name: "Mike Wilson", title: "Product Manager", mutual: 3 },
 ];
+
+/* small helpers */
+const roleToTitle = (role?: string) =>
+  role === "recruiter" ? "Recruiter"
+  : role === "creator" ? "Creator"
+  : role === "student" ? "Student"
+  : "Professional";
 
 /* ============= UI Components ============= */
 function Avatar({ letter, size = 40 }: { letter: string; size?: number }) {
@@ -97,7 +105,13 @@ function Button({
 
 /* ============= Main Component ============= */
 export default function HomePage() {
-  // State
+  const router = useRouter();
+
+  // 🔐 Auth gate + current user (NEW)
+  const [authLoading, setAuthLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  // Existing state
   const [profile, setProfile] = useState<Profile | null>(null);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [suggestions, setSuggestions] = useState<SuggestUser[]>(SUGGESTED);
@@ -112,7 +126,48 @@ export default function HomePage() {
   const [editName, setEditName] = useState("");
   const [editTitle, setEditTitle] = useState("");
 
-  // Fetch posts
+  /* ============= Auth check (NEW) ============= */
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/me", { cache: "no-store" });
+        const data = await res.json().catch(() => ({}));
+        if (!active) return;
+
+        if (!res.ok || !data?.user) {
+          // not logged in → go to login and come back here after
+          const next = typeof window !== "undefined" ? window.location.pathname + window.location.search : "/";
+          router.replace(`/login?next=${encodeURIComponent(next)}`);
+          return;
+        }
+
+        setCurrentUser(data.user);
+
+        // seed profile from DB user (no UI loss)
+        const name: string = data.user.name || "User";
+        const title: string =
+          data.user.title || data.user.headline || roleToTitle(data.user.role);
+        const avatar = "*"; // keep your avatar style; letter bubble uses name[0]
+
+        setProfile(prev => ({
+          name,
+          title,
+          avatar: avatar,
+          profileViews: prev?.profileViews ?? 0,
+          postImpressions: prev?.postImpressions ?? 0,
+        }));
+      } catch {
+        const next = typeof window !== "undefined" ? window.location.pathname + window.location.search : "/";
+        router.replace(`/login?next=${encodeURIComponent(next)}`);
+      } finally {
+        if (active) setAuthLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [router]);
+
+  /* ============= Fetch posts (unchanged) ============= */
   useEffect(() => {
     (async () => {
       try {
@@ -141,7 +196,7 @@ export default function HomePage() {
     })();
   }, []);
 
-  // Stats
+  /* ============= Stats (unchanged) ============= */
   const stats = useMemo(() => {
     if (!profile) return { posts: 0, likes: 0, conns: 0 };
     return {
@@ -151,7 +206,7 @@ export default function HomePage() {
     };
   }, [posts, profile, connections.length]);
 
-  /* ============= Actions ============= */
+  /* ============= Actions (unchanged) ============= */
   const openCreate = useCallback(() => {
     if (!profile) {
       setEditName("");
@@ -295,7 +350,7 @@ export default function HomePage() {
     setEditOpen(false);
   }, [editName, editTitle, profile]);
 
-  /* ============= UI Components ============= */
+  /* ============= Feed Item (unchanged) ============= */
   const FeedItem = React.memo(({ p }: { p: UIPost }) => {
     const [commentVal, setCommentVal] = useState("");
     
@@ -354,6 +409,24 @@ export default function HomePage() {
   });
 
   /* ============= Render ============= */
+
+  // 🔐 block page until auth check finishes
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          <div className="animate-pulse space-y-4">
+            <div className="h-32 bg-gray-200 rounded-xl" />
+            <div className="h-48 bg-gray-200 rounded-xl" />
+            <div className="h-48 bg-gray-200 rounded-xl" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+  // if unauthenticated we already redirected; avoid flashing UI
+  if (!currentUser) return null;
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
