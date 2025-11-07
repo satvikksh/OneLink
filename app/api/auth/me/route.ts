@@ -1,100 +1,74 @@
-
+// app/api/auth/me/route.ts
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
+import mongoose from "mongoose";
 import { dbConnect } from "../../../src/lib/ConnectDB";
 import User from "../../../src/models/users";
 
-
 const COOKIE_NAME = "auth_token";
-
-function getSecret() {
-  return new TextEncoder().encode(process.env.JWT_SECRET || "default_secret");
-}
+const getSecret = () => new TextEncoder().encode(process.env.JWT_SECRET || "default_secret");
 
 export async function GET() {
+  const jar = cookies();
+  const token = (await jar).get(COOKIE_NAME)?.value;
+
+  if (!token) {
+    return NextResponse.json({ user: null, error: "NO_TOKEN" }, { status: 401 });
+  }
+
   try {
-    const jar = await cookies();
-    const token = jar.get(COOKIE_NAME)?.value;
-
-    if (!token) {
-      return NextResponse.json(
-        { user: null, error: "NO_TOKEN", authenticated: false },
-        { status: 401 }
-      );
-    }
-
-    // Verify JWT token
+    // verify token
     const { payload } = await jwtVerify(token, getSecret());
 
-    // Connect to database
+    // normalize possible payload shapes
+    // payload may contain { id: "..."} or { sub: "..." } or { email: "..." } etc.
+    const maybeId = (payload as any).id ?? (payload as any).sub ?? null;
+    const maybeEmail = (payload as any).email ?? null;
+
     await dbConnect();
 
-    // Get user ID from token
-    const userId = (payload as any).id || (payload as any).sub;
+    let user: any = null;
 
-    // Find user in database
-    const user = await User.findById(userId)
-      .select("-password") // Exclude password
-      .lean();
+    if (maybeId) {
+      // if id is an object, convert to string (handles ObjectId-like payloads)
+      const idStr = typeof maybeId === "object" ? String(maybeId) : maybeId;
+
+      // validate ObjectId format first
+      if (mongoose.isValidObjectId(idStr)) {
+        user = await User.findById(idStr).select("-password").lean();
+      } else {
+        // not a valid ObjectId string — maybe it's an email or username — fallback below
+        user = null;
+      }
+    }
+
+    // fallback: if we didn't find via id, try using email from payload (or id might actually be an email)
+    if (!user && maybeEmail) {
+      user = await User.findOne({ email: (maybeEmail as string).toLowerCase().trim() })
+        .select("-password")
+        .lean();
+    }
+
+    // extra fallback: sometimes token's id was actually an email string
+    if (!user && maybeId && typeof maybeId === "string" && maybeId.includes("@")) {
+      user = await User.findOne({ email: maybeId.toLowerCase().trim() }).select("-password").lean();
+    }
 
     if (!user) {
-      // User not found - clear cookie
-      const res = NextResponse.json(
-        { user: null, error: "USER_NOT_FOUND", authenticated: false },
-        { status: 401 }
-      );
-      res.cookies.set(COOKIE_NAME, "", {
-        path: "/",
-        httpOnly: true,
-        maxAge: 60 * 60 * 24, // 1 day
-      });
+      // clear cookie to prevent repeated verification attempts with bad token
+      const res = NextResponse.json({ user: null, error: "USER_NOT_FOUND" }, { status: 401 });
+      res.cookies.set(COOKIE_NAME, "", { path: "/", httpOnly: true, maxAge: 0 });
       return res;
     }
 
-    // Check if user is active
-    if (!(user as any).isActive) {
-      const res = NextResponse.json(
-        { user: null, error: "ACCOUNT_DISABLED", authenticated: false },
-        { status: 403 }
-      );
-      res.cookies.set(COOKIE_NAME, "", {
-        path: "/",
-        httpOnly: true,
-        maxAge: 60 * 60 * 24,
-      });
-      return res;
-    }
-
-    // Return user data
-    return NextResponse.json(
-      {
-        user: {
-          id: user._id.toString(),
-          name: user.name,
-          username: user.username,
-          email: user.email,
-          role: user.role,
-          profileImage: (user as any).profileImage || null,
-          createdAt: user.createdAt,
-        },
-        authenticated: true,
-      },
-      { status: 200 }
-    );
-  } catch (err) {
-    console.error("Token verification error:", err);
-    
-    // Token expired or invalid - clear cookie
-    const res = NextResponse.json(
-      { user: null, error: "TOKEN_EXPIRED_OR_INVALID", authenticated: false },
-      { status: 401 }
-    );
-    res.cookies.set(COOKIE_NAME, "", {
-      path: "/",
-      httpOnly: true,
-      maxAge: 60 * 60 * 24,
-    });
+    // success
+    return NextResponse.json({ user }, { status: 200 });
+  } catch (err: any) {
+    console.error("/api/auth/me verify error:", err?.message ?? err);
+    // clear cookie when token invalid/expired
+    const res = NextResponse.json({ user: null, error: "TOKEN_EXPIRED_OR_INVALID" }, { status: 401 });
+    res.cookies.set(COOKIE_NAME, "", { path: "/", httpOnly: true, maxAge: 0 });
     return res;
   }
 }

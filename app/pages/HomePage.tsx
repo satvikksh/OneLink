@@ -131,7 +131,7 @@ export default function HomePage() {
     let active = true;
     (async () => {
       try {
-        const res = await fetch("/api/me", { cache: "no-store" });
+        const res = await fetch("/api/auth/me", { cache: "no-store" });
         const data = await res.json().catch(() => ({}));
         if (!active) return;
 

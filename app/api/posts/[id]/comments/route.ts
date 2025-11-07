@@ -6,7 +6,7 @@ import { Post } from "../../../../src/models/posts";
 
 type Params = { params: { id: string } };
 
-export async function POST(req: Request, { params }: Params) {
+export async function POST(req: Request, { params }: { params: { id: string } })  {
   await dbConnect();
   const { id } = params;
   const { text } = await req.json();

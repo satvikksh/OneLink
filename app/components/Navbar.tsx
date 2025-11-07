@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -74,40 +74,69 @@ const SearchBar: React.FC<{
   className?: string;
   autoFocus?: boolean;
   onClose?: () => void;
-}> = ({ value, onChange, className = "", autoFocus = false, onClose }) => (
-  <div className={`relative w-full ${className}`}>
-    <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 pointer-events-none">
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-        />
-      </svg>
-    </div>
-    <input
-      type="text"
-      placeholder="Search posts, people, jobs..."
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full px-4 py-2 pl-10 bg-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all hover:bg-gray-200"
-      autoFocus={autoFocus}
-      aria-label="Search"
-    />
-    {onClose && (
-      <button
-        onClick={onClose}
-        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-        aria-label="Close search"
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+}> = ({ value, onChange, className = "", autoFocus = false, onClose }) => {
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  useEffect(() => {
+    // small demo suggestion logic (non-blocking)
+    if (!value.trim()) return setSuggestions([]);
+    const q = value.toLowerCase();
+    setSuggestions(
+      ["React", "Next.js", "TypeScript", "Node.js", "UI/UX", "OpenAI"]
+        .filter(s => s.toLowerCase().includes(q))
+        .slice(0, 5)
+    );
+  }, [value]);
+
+  return (
+    <div className={`relative w-full ${className}`}>
+      <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 pointer-events-none">
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+          />
         </svg>
-      </button>
-    )}
-  </div>
-);
+      </div>
+      <input
+        type="text"
+        placeholder="Search posts, people, jobs..."
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full px-4 py-2 pl-10 bg-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all hover:bg-gray-200"
+        autoFocus={autoFocus}
+        aria-label="Search"
+      />
+      {onClose && (
+        <button
+          onClick={onClose}
+          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+          aria-label="Close search"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      )}
+
+      {/* suggestions dropdown */}
+      {suggestions.length > 0 && (
+        <div className="absolute left-0 right-0 mt-2 bg-white border border-gray-100 rounded-md shadow-md z-30">
+          {suggestions.map((s, i) => (
+            <button
+              key={i}
+              onClick={() => onChange(s)}
+              className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm"
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const NavButton: React.FC<{
   item: NavItem;
@@ -133,16 +162,24 @@ const NavButton: React.FC<{
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center px-4 py-2 rounded-md min-w-16 transition-all ${
+      className={`flex flex-col items-center px-4 py-2 rounded-md min-w-16 transition-all relative group ${
         isActive ? "text-gray-900" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
       }`}
       aria-current={isActive ? "page" : undefined}
+      title={item.label}
     >
-      <span className="text-xl mb-1" aria-hidden="true">{item.icon}</span>
+      <span className={`text-xl mb-1 transition-transform ${isActive ? "scale-110" : "group-hover:scale-105"}`} aria-hidden="true">
+        {item.icon}
+      </span>
       <span className="text-xs font-medium">{item.label}</span>
-      {isActive && (
-        <div className="w-full h-0.5 bg-gray-900 mt-1 rounded-full" aria-hidden="true" />
-      )}
+
+      {/* animated active indicator */}
+      <span
+        aria-hidden="true"
+        className={`absolute bottom-0 left-1/2 transform -translate-x-1/2 w-0.5 h-0.5 rounded-full transition-all ${
+          isActive ? "bg-blue-600 w-8 h-0.5 mt-1" : "bg-transparent"
+        }`}
+      />
     </button>
   );
 };
@@ -206,6 +243,9 @@ const Navbar: React.FC<NavbarProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+  const [showAvatarMenu, setShowAvatarMenu] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(3);
+  const navRef = useRef<HTMLElement | null>(null);
 
   // Memoized handlers
   const handleSearch = useCallback((query: string) => {
@@ -239,8 +279,52 @@ const Navbar: React.FC<NavbarProps> = ({
 
   const statsToDisplay = userStats || defaultStats;
 
+  // set padding-top on main so fixed nav doesn't overlap content
+  useEffect(() => {
+    const el = navRef.current;
+    if (!el) return;
+    const height = el.getBoundingClientRect().height;
+    // set CSS var
+    document.documentElement.style.setProperty("--onelink-navbar-height", `${height}px`);
+    // apply to first main if exists (so other files need not change)
+    const main = document.querySelector("main");
+    if (main) {
+      (main as HTMLElement).style.paddingTop = `${height + 12}px`; // +12 for small breathing room
+    }
+    // cleanup on unmount or resize
+    const ro = new ResizeObserver(() => {
+      const h = el.getBoundingClientRect().height;
+      document.documentElement.style.setProperty("--onelink-navbar-height", `${h}px`);
+      const m = document.querySelector("main");
+      if (m) (m as HTMLElement).style.paddingTop = `${h + 12}px`;
+    });
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      document.documentElement.style.removeProperty("--onelink-navbar-height");
+      const m = document.querySelector("main");
+      if (m) (m as HTMLElement).style.paddingTop = "";
+    };
+  }, []);
+
+  // close avatar menu on outside click
+  useEffect(() => {
+    function onDoc(e: MouseEvent) {
+      const target = e.target as HTMLElement;
+      if (!target) return;
+      const menu = document.getElementById("onelink-avatar-menu");
+      const avatar = document.getElementById("onelink-avatar-btn");
+      if (!menu || !avatar) return;
+      if (!menu.contains(target) && !avatar.contains(target)) {
+        setShowAvatarMenu(false);
+      }
+    }
+    document.addEventListener("click", onDoc);
+    return () => document.removeEventListener("click", onDoc);
+  }, []);
+
   return (
-    <nav className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 shadow-sm z-50">
+    <nav ref={navRef} className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 shadow-sm z-50">
       {/* Main Navbar */}
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between h-14 px-4">
@@ -267,12 +351,25 @@ const Navbar: React.FC<NavbarProps> = ({
           {/* Center Section - Navigation (Desktop) */}
           <div className="hidden lg:flex items-center justify-center space-x-1 flex-1">
             {NAV_ITEMS.map((item) => (
-              <NavButton
-                key={item.key}
-                item={item}
-                isActive={currentPage === item.key}
-                onClick={() => handlePageChange(item.key)}
-              />
+              <div key={item.key} className="relative group">
+                <NavButton
+                  item={item}
+                  isActive={currentPage === item.key}
+                  onClick={() => handlePageChange(item.key)}
+                />
+                {/* small tooltip on hover */}
+                <div className="absolute left-1/2 -translate-x-1/2 bottom-[-2.25rem] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                  <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded-md">
+                    {item.label}
+                  </div>
+                </div>
+                {/* notifications badge for notifications item */}
+                {item.key === "notifications" && unreadNotifications > 0 && (
+                  <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">
+                    {unreadNotifications}
+                  </div>
+                )}
+              </div>
             ))}
           </div>
 
@@ -283,6 +380,7 @@ const Navbar: React.FC<NavbarProps> = ({
                 key={action.key}
                 onClick={() => handleActionClick(action.message)}
                 className="flex flex-col items-center px-3 py-2 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors min-w-16"
+                title={action.label}
               >
                 <span className="text-lg mb-1" aria-hidden="true">{action.icon}</span>
                 <span className="text-xs font-medium">{action.label}</span>
@@ -292,16 +390,46 @@ const Navbar: React.FC<NavbarProps> = ({
             <button
               onClick={onCreatePost}
               className="bg-blue-600 text-white px-4 py-1.5 rounded-full hover:bg-blue-700 transition-colors text-sm font-medium flex items-center space-x-1"
+              title="Create a post"
             >
               <span aria-hidden="true">+</span>
               <span>Post</span>
             </button>
 
-            <UserAvatar 
-              initial={userInitial}
-              onClick={() => handlePageChange("profile")}
-              className="ml-2"
-            />
+            <div className="relative">
+              <UserAvatar
+                initial={userInitial}
+                onClick={() => setShowAvatarMenu(v => !v)}
+                className="ml-2"
+              />
+              {/* Avatar menu */}
+              {showAvatarMenu && (
+                <div
+                  id="onelink-avatar-menu"
+                  className="absolute right-0 mt-2 w-48 bg-white border border-gray-100 rounded-md shadow-lg z-40"
+                >
+                  <button
+                    onClick={() => { handlePageChange("profile"); setShowAvatarMenu(false); }}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-50"
+                  >
+                    View Profile
+                  </button>
+                  <button
+                    onClick={() => { alert("Settings coming soon"); setShowAvatarMenu(false); }}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-50"
+                  >
+                    Settings
+                  </button>
+                  <div className="border-t border-gray-100" />
+                  <button
+                    onClick={() => { alert("Logged out (demo)"); setShowAvatarMenu(false); }}
+                    className="w-full text-left px-4 py-2 text-red-600 hover:bg-gray-50"
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Right Section - Mobile */}
@@ -319,7 +447,7 @@ const Navbar: React.FC<NavbarProps> = ({
 
             <UserAvatar 
               initial={userInitial}
-              onClick={() => handlePageChange("profile")}
+              onClick={() => setShowAvatarMenu(v => !v)}
             />
           </div>
         </div>
@@ -362,7 +490,7 @@ const Navbar: React.FC<NavbarProps> = ({
                   </button>
                 ))}
                 <button
-                  onClick={onCreatePost}
+                  onClick={() => { onCreatePost(); setIsMobileMenuOpen(false); }}
                   className="flex items-center space-x-3 w-full px-3 py-2 rounded-md text-gray-700 hover:bg-gray-100"
                 >
                   <span className="text-lg w-6" aria-hidden="true">+</span>
