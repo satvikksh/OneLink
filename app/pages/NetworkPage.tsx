@@ -307,7 +307,7 @@ const NetworkPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-200">
       <Navbar 
         onPageChange={handlePageChange}
         currentPage={currentPage}
