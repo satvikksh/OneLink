@@ -1,3 +1,4 @@
+// app/pages/NetworkPage.tsx
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
@@ -7,9 +8,9 @@ import { useRouter } from "next/navigation";
 interface User {
   id: string;
   name: string;
-  title: string;
-  avatar: string;
-  mutualConnections: number;
+  title?: string;
+  avatar?: string;
+  mutualConnections?: number;
   company?: string;
   location?: string;
 }
@@ -39,182 +40,100 @@ const NetworkPage: React.FC = () => {
   const [suggestedPeople, setSuggestedPeople] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState("network");
+  const [loadingUsers, setLoadingUsers] = useState(true);
   const router = useRouter();
 
-  // Mock data for connections
+  // --- Mock / initial data (keeps UI working if API isn't ready)
   const initialConnections: Connection[] = [
-    {
-      id: "1",
-      name: "Sarah Wilson",
-      title: "Product Manager at OneLink",
-      avatar: "/avatars/sarah.jpg",
-      online: true,
-      connectedDate: "2 weeks ago"
-    },
-    {
-      id: "2",
-      name: "Satvik Kushwaha",
-      title: "Senior Designer",
-      avatar: "/avatars/alex.jpg",
-      online: false,
-      connectedDate: "1 month ago"
-    },
-    {
-      id: "3",
-      name: "Mike Chen",
-      title: "Backend Developer",
-      avatar: "/avatars/mike.jpg",
-      online: true,
-      connectedDate: "3 days ago"
-    },
-    {
-      id: "4",
-      name: "Emily Davis",
-      title: "Data Scientist",
-      avatar: "/avatars/emily.jpg",
-      online: true,
-      connectedDate: "1 week ago"
-    },
-    {
-      id: "5",
-      name: "David Brown",
-      title: "Frontend Lead",
-      avatar: "/avatars/david.jpg",
-      online: false,
-      connectedDate: "2 months ago"
-    },
-    {
-      id: "6",
-      name: "Lisa Wang",
-      title: "UX Researcher",
-      avatar: "/avatars/lisa.jpg",
-      online: true,
-      connectedDate: "5 days ago"
-    }
+    { id: "1", name: "Sarah Wilson", title: "Product Manager at OneLink", avatar: "/avatars/sarah.jpg", online: true, connectedDate: "2 weeks ago" },
+    { id: "2", name: "Satvik Kushwaha", title: "Senior Designer", avatar: "/avatars/alex.jpg", online: false, connectedDate: "1 month ago" },
+    { id: "3", name: "Mike Chen", title: "Backend Developer", avatar: "/avatars/mike.jpg", online: true, connectedDate: "3 days ago" },
   ];
 
-  // Mock data for invitations
   const initialInvitations: Invitation[] = [
-    {
-      id: "1",
-      name: "John Martinez",
-      title: "Engineering Manager at StartupXYZ",
-      avatar: "/avatars/john.jpg",
-      mutualConnections: 4,
-      message: "We worked together on the React conference project"
-    },
-    {
-      id: "2",
-      name: "Priya Patel",
-      title: "Full Stack Developer",
-      avatar: "/avatars/priya.jpg",
-      mutualConnections: 2,
-      message: "Interested in connecting with fellow developers"
-    },
-    {
-      id: "3",
-      name: "James Wilson",
-      title: "CTO at InnovateTech",
-      avatar: "/avatars/james.jpg",
-      mutualConnections: 6
-    }
+    { id: "1", name: "John Martinez", title: "Engineering Manager", avatar: "/avatars/john.jpg", mutualConnections: 4, message: "We worked together on the React conference project" },
+    { id: "2", name: "Priya Patel", title: "Full Stack Developer", avatar: "/avatars/priya.jpg", mutualConnections: 2, message: "Interested in connecting" },
   ];
 
-  // Mock data for suggested people
   const initialSuggestedPeople: User[] = [
-    {
-      id: "1",
-      name: "Michael Taylor",
-      title: "Senior Software Engineer",
-      avatar: "/avatars/michael.jpg",
-      mutualConnections: 8,
-      company: "Google",
-      location: "San Francisco, CA"
-    },
-    {
-      id: "2",
-      name: "Sophia Garcia",
-      title: "Product Designer",
-      avatar: "/avatars/sophia.jpg",
-      mutualConnections: 3,
-      company: "Facebook",
-      location: "New York, NY"
-    },
-    {
-      id: "3",
-      name: "Robert Kim",
-      title: "DevOps Engineer",
-      avatar: "/avatars/robert.jpg",
-      mutualConnections: 5,
-      company: "Amazon",
-      location: "Seattle, WA"
-    },
-    {
-      id: "4",
-      name: "Amanda Lee",
-      title: "Technical Program Manager",
-      avatar: "/avatars/amanda.jpg",
-      mutualConnections: 7,
-      company: "Microsoft",
-      location: "Austin, TX"
-    },
-    {
-      id: "5",
-      name: "Daniel Thompson",
-      title: "AI/ML Specialist",
-      avatar: "/avatars/daniel.jpg",
-      mutualConnections: 2,
-      company: "OpenAI",
-      location: "San Francisco, CA"
-    },
-    {
-      id: "6",
-      name: "Jessica Brown",
-      title: "Mobile Developer",
-      avatar: "/avatars/jessica.jpg",
-      mutualConnections: 4,
-      company: "Apple",
-      location: "Cupertino, CA"
-    }
+    { id: "s1", name: "Michael Taylor", title: "Senior Software Engineer", avatar: "/avatars/michael.jpg", mutualConnections: 8, company: "Google", location: "San Francisco, CA" },
+    { id: "s2", name: "Sophia Garcia", title: "Product Designer", avatar: "/avatars/sophia.jpg", mutualConnections: 3, company: "Facebook", location: "New York, NY" },
   ];
 
-  // Initialize data
+  // Initialize UI with local mocks first, then fetch real users
   useEffect(() => {
     setConnections(initialConnections);
     setInvitations(initialInvitations);
     setSuggestedPeople(initialSuggestedPeople);
   }, []);
 
-  // Handle page navigation
-  const handlePageChange = (page: string) => {
-    setCurrentPage(page);
-    
-    // Navigate to the actual page using Next.js router
-    switch(page) {
-      case "home":
-        router.push("/");
-        break;
-      case "network":
-       router.push(`/?page=${page}`, { scroll: false });
-        break;
-      case "jobs":
-        router.push(`/?page=${page}`, { scroll: false });
-        break;
-      case "chat":
-       router.push(`/?page=${page}`, { scroll: false });
-        break;
-      case "notifications":
-        router.push(`/?page=${page}`, { scroll: false });
-        break;
-      case "profile":
-       router.push(`/?page=${page}`, { scroll: false });
-        break;
-      default:
-        router.push("/");
-    }
-  };
+  // Fetch real registered users for "People you may know"
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      setLoadingUsers(true);
+      try {
+        const res = await fetch("/api/users", { cache: "no-store" });
+        // console.log("GET /api/users status:", res.status);
 
-  // Filter data based on search query
+        // Accept either array response or { users: [...] } object
+        const data = await res.json().catch(() => null);
+        // console.log("GET /api/users body:", data);
+
+        if (!active) return;
+
+        if (!res.ok) {
+          console.error("Failed to load users:", data);
+          // don't blow away local suggestions entirely; show empty or keep mocks
+          setSuggestedPeople(prev => prev); // keep current (mocks)
+          return;
+        }
+
+        // normalize different shapes: if API returns array directly or { users: [...] }
+        const usersArr: any[] = Array.isArray(data) ? data : (Array.isArray(data?.users) ? data.users : []);
+
+        // If empty array from server, keep current suggested people (optional)
+        if (!usersArr.length) {
+          setSuggestedPeople(prev => prev); // keep mock suggestions
+          setLoadingUsers(false);
+          return;
+        }
+
+        // Map server user -> UI User shape
+        const mapped: User[] = usersArr.map((u: any, idx: number) => {
+          const id = u._id ?? u.id ?? String(u.username ?? `u-${idx}-${Date.now()}`);
+          const name = u.name ?? u.fullName ?? u.username ?? "Unknown";
+          const roleOrTitle = (() => {
+            if (u.title) return u.title;
+            if (u.role) return typeof u.role === "string" ? (u.role.charAt(0).toUpperCase() + u.role.slice(1)) : String(u.role);
+            if (u.username) return u.username;
+            return "Member";
+          })();
+
+          return {
+            id,
+            name,
+            title: roleOrTitle,
+            avatar: u.avatar ?? u.profilePhoto ?? undefined,
+            mutualConnections: u.mutualConnections ?? Math.floor(Math.random() * 6) + 1,
+            company: u.company ?? undefined,
+            location: u.location ?? undefined,
+          } as User;
+        });
+
+        setSuggestedPeople(mapped);
+      } catch (err) {
+        console.error("Error fetching users:", err);
+        // keep existing suggestions (mocks) as fallback
+      } finally {
+        if (active) setLoadingUsers(false);
+      }
+    })();
+
+    return () => { active = false; };
+  }, []);
+
+  // Filter logic
   const filteredConnections = useMemo(() => {
     return connections.filter(connection =>
       connection.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -232,31 +151,26 @@ const NetworkPage: React.FC = () => {
   const filteredSuggestedPeople = useMemo(() => {
     return suggestedPeople.filter(person =>
       person.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      person.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      person.company?.toLowerCase().includes(searchQuery.toLowerCase())
+      (person.title || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (person.company || "").toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [suggestedPeople, searchQuery]);
 
-  // Handler functions
+  // Handlers
   const handleAcceptInvitation = (invitationId: string) => {
     const invitation = invitations.find(inv => inv.id === invitationId);
-    if (invitation) {
-      // Add to connections
-      const newConnection: Connection = {
-        id: `conn-${Date.now()}`,
-        name: invitation.name,
-        title: invitation.title,
-        avatar: invitation.avatar,
-        online: true,
-        connectedDate: "Just now"
-      };
-      setConnections(prev => [newConnection, ...prev]);
-      
-      // Remove from invitations
-      setInvitations(prev => prev.filter(inv => inv.id !== invitationId));
-      
-      alert(`Connected with ${invitation.name}`);
-    }
+    if (!invitation) return;
+    const newConnection: Connection = {
+      id: `conn-${Date.now()}`,
+      name: invitation.name,
+      title: invitation.title,
+      avatar: invitation.avatar,
+      online: true,
+      connectedDate: "Just now"
+    };
+    setConnections(prev => [newConnection, ...prev]);
+    setInvitations(prev => prev.filter(inv => inv.id !== invitationId));
+    alert(`Connected with ${invitation.name}`);
   };
 
   const handleIgnoreInvitation = (invitationId: string) => {
@@ -265,22 +179,18 @@ const NetworkPage: React.FC = () => {
 
   const handleConnect = (personId: string) => {
     const person = suggestedPeople.find(p => p.id === personId);
-    if (person) {
-      // Remove from suggestions
-      setSuggestedPeople(prev => prev.filter(p => p.id !== personId));
-      
-      // Add to invitations (simulating sending invitation)
-      const newInvitation: Invitation = {
-        id: `inv-${Date.now()}`,
-        name: person.name,
-        title: person.title,
-        avatar: person.avatar,
-        mutualConnections: person.mutualConnections
-      };
-      setInvitations(prev => [newInvitation, ...prev]);
-      
-      alert(`Invitation sent to ${person.name}`);
-    }
+    if (!person) return;
+    setSuggestedPeople(prev => prev.filter(p => p.id !== personId));
+    const newInvitation: Invitation = {
+      id: `inv-${Date.now()}`,
+      name: person.name,
+      title: person.title ?? "Member",
+      // avatar: person.avatar ?? undefined,
+      mutualConnections: person.mutualConnections ?? 0,
+      avatar: ""
+    };
+    setInvitations(prev => [newInvitation, ...prev]);
+    alert(`Invitation sent to ${person.name}`);
   };
 
   const handleRemoveConnection = (connectionId: string) => {
@@ -290,16 +200,14 @@ const NetworkPage: React.FC = () => {
     }
   };
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
+  const handlePageChange = (page: string) => {
+    setCurrentPage(page);
+    if (page === "home") router.push("/");
+    else router.push(`/?page=${page}`, { scroll: false });
   };
 
-  const handleCreatePost = () => {
-    console.log("Create post clicked");
-    // Add your create post logic here
-  };
+  const handleSearch = (q: string) => setSearchQuery(q);
 
-  // Mock user stats
   const userStats = {
     totalPosts: 15,
     totalLikes: 124,
@@ -307,18 +215,17 @@ const NetworkPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-200">
-      <Navbar 
+    <div className="min-h-screen bg-gray-200 ">
+      <Navbar
         onPageChange={handlePageChange}
         currentPage={currentPage}
         onSearch={handleSearch}
-        onCreatePost={handleCreatePost}
+        onCreatePost={() => console.log("Create post clicked")}
         userStats={userStats}
       />
-      
+
       <div className="pt-5 pb-8">
         <div className="max-w-6xl mx-auto px-4">
-          
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">My Network</h1>
@@ -341,158 +248,89 @@ const NetworkPage: React.FC = () => {
                   <button
                     key={tab.key}
                     onClick={() => setActiveTab(tab.key as any)}
-                    className={`py-4 border-b-2 transition-colors flex items-center space-x-2 ${
-                      activeTab === tab.key
-                        ? "border-blue-500 text-blue-600"
-                        : "border-transparent text-gray-500 hover:text-gray-700"
-                    }`}
+                    className={`py-4 border-b-2 transition-colors flex items-center space-x-2 ${activeTab === tab.key ? "border-blue-500 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}
                   >
                     <span>{tab.label}</span>
-                    {tab.count > 0 && (
-                      <span className="bg-gray-200 text-gray-700 text-xs rounded-full px-2 py-1">
-                        {tab.count}
-                      </span>
-                    )}
+                    {tab.count > 0 && <span className="bg-gray-200 text-gray-700 text-xs rounded-full px-2 py-1">{tab.count}</span>}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Search Bar */}
-            {/* <div className="p-6 border-b border-gray-200">
-              <div className="relative max-w-md">
-                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
-                <input
-                  type="text"
-                  placeholder={`Search ${activeTab}...`}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div> */}
-
-            {/* Tab Content */}
             <div className="p-6">
+              {/* Connections */}
               {activeTab === "connections" && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredConnections.length === 0 ? (
-                    <div className="col-span-full text-center py-8">
-                      <p className="text-gray-500">No connections found.</p>
-                    </div>
-                  ) : (
-                    filteredConnections.map(connection => (
-                      <div key={connection.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                        <div className="flex items-center space-x-3 mb-3">
-                          <div className="relative">
-                            <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
-                              {connection.name.charAt(0)}
-                            </div>
-                            {connection.online && (
-                              <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-gray-900 truncate">{connection.name}</h3>
-                            <p className="text-sm text-gray-600 truncate">{connection.title}</p>
-                            <p className="text-xs text-gray-500">Connected {connection.connectedDate}</p>
-                          </div>
+                  {connections.length === 0 ? (
+                    <div className="col-span-full text-center py-8"><p className="text-gray-500">No connections found.</p></div>
+                  ) : connections.map(connection => (
+                    <div key={connection.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-center space-x-3 mb-3">
+                        <div className="relative">
+                          <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">{connection.name.charAt(0)}</div>
+                          {connection.online && <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />}
                         </div>
-                        <div className="flex space-x-2">
-                          <button className="flex-1 bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600 transition-colors text-sm">
-                            Message
-                          </button>
-                          <button
-                            onClick={() => handleRemoveConnection(connection.id)}
-                            className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm"
-                            title="Remove connection"
-                          >
-                            <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-gray-900 truncate">{connection.name}</h3>
+                          <p className="text-sm text-gray-600 truncate">{connection.title}</p>
+                          <p className="text-xs text-gray-500">Connected {connection.connectedDate}</p>
                         </div>
                       </div>
-                    ))
-                  )}
+                      <div className="flex space-x-2">
+                        <button className="flex-1 bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600 transition-colors text-sm">Message</button>
+                        <button onClick={() => handleRemoveConnection(connection.id)} className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm" title="Remove connection">
+                          <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
 
+              {/* Invitations */}
               {activeTab === "invitations" && (
                 <div className="space-y-4">
-                  {filteredInvitations.length === 0 ? (
-                    <div className="text-center py-8">
-                      <p className="text-gray-500">No pending invitations.</p>
-                    </div>
-                  ) : (
-                    filteredInvitations.map(invitation => (
-                      <div key={invitation.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                        <div className="flex items-start space-x-4">
-                          <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-lg">
-                            {invitation.name.charAt(0)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-gray-900">{invitation.name}</h3>
-                            <p className="text-sm text-gray-600">{invitation.title}</p>
-                            <p className="text-sm text-blue-500">{invitation.mutualConnections} mutual connections</p>
-                            {invitation.message && (
-                              <p className="text-sm text-gray-700 mt-2 bg-gray-50 p-2 rounded">{invitation.message}</p>
-                            )}
-                          </div>
-                          <div className="flex flex-col space-y-2">
-                            <button
-                              onClick={() => handleAcceptInvitation(invitation.id)}
-                              className="bg-blue-500 text-white px-4 py-2 rounded-full hover:bg-blue-600 transition-colors text-sm font-medium"
-                            >
-                              Accept
-                            </button>
-                            <button
-                              onClick={() => handleIgnoreInvitation(invitation.id)}
-                              className="border border-gray-300 text-gray-700 px-4 py-2 rounded-full hover:bg-gray-50 transition-colors text-sm"
-                            >
-                              Ignore
-                            </button>
-                          </div>
+                  {invitations.length === 0 ? <div className="text-center py-8"><p className="text-gray-500">No pending invitations.</p></div> : invitations.map(invitation => (
+                    <div key={invitation.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-start space-x-4">
+                        <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-lg">{invitation.name.charAt(0)}</div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-gray-900">{invitation.name}</h3>
+                          <p className="text-sm text-gray-600">{invitation.title}</p>
+                          <p className="text-sm text-blue-500">{invitation.mutualConnections} mutual connections</p>
+                          {invitation.message && <p className="text-sm text-gray-700 mt-2 bg-gray-50 p-2 rounded">{invitation.message}</p>}
+                        </div>
+                        <div className="flex flex-col space-y-2">
+                          <button onClick={() => handleAcceptInvitation(invitation.id)} className="bg-blue-500 text-white px-4 py-2 rounded-full hover:bg-blue-600 transition-colors text-sm font-medium">Accept</button>
+                          <button onClick={() => handleIgnoreInvitation(invitation.id)} className="border border-gray-300 text-gray-700 px-4 py-2 rounded-full hover:bg-gray-50 transition-colors text-sm">Ignore</button>
                         </div>
                       </div>
-                    ))
-                  )}
+                    </div>
+                  ))}
                 </div>
               )}
 
+              {/* People (suggested) */}
               {activeTab === "people" && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredSuggestedPeople.length === 0 ? (
-                    <div className="col-span-full text-center py-8">
-                      <p className="text-gray-500">No people found.</p>
-                    </div>
+                  {loadingUsers ? (
+                    <div className="col-span-full text-center py-8">Loading users…</div>
+                  ) : filteredSuggestedPeople.length === 0 ? (
+                    <div className="col-span-full text-center py-8"><p className="text-gray-500">No users found.</p></div>
                   ) : (
                     filteredSuggestedPeople.map(person => (
                       <div key={person.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                         <div className="text-center mb-4">
                           <div className="w-20 h-20 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center text-white font-semibold text-xl mx-auto mb-3">
-                            {person.name.charAt(0)}
+                            {person.name ? person.name.charAt(0) : "U"}
                           </div>
                           <h3 className="font-semibold text-gray-900">{person.name}</h3>
                           <p className="text-sm text-gray-600">{person.title}</p>
-                          {person.company && (
-                            <p className="text-sm text-gray-500">{person.company}</p>
-                          )}
-                          {person.location && (
-                            <p className="text-xs text-gray-500">{person.location}</p>
-                          )}
-                          <p className="text-sm text-blue-500 mt-2">{person.mutualConnections} mutual connections</p>
+                          {person.company && <p className="text-sm text-gray-500">{person.company}</p>}
+                          {person.location && <p className="text-xs text-gray-500">{person.location}</p>}
+                          <p className="text-sm text-blue-500 mt-2">{person.mutualConnections ?? 0} mutual connections</p>
                         </div>
-                        <button
-                          onClick={() => handleConnect(person.id)}
-                          className="w-full bg-blue-500 text-white px-4 py-2 rounded-full hover:bg-blue-600 transition-colors text-sm font-medium"
-                        >
-                          Connect
-                        </button>
+                        <button onClick={() => handleConnect(person.id)} className="w-full bg-blue-500 text-white px-4 py-2 rounded-full hover:bg-blue-600 transition-colors text-sm font-medium">Connect</button>
                       </div>
                     ))
                   )}
@@ -523,6 +361,7 @@ const NetworkPage: React.FC = () => {
               </div>
             </div>
           </div>
+
         </div>
       </div>
     </div>

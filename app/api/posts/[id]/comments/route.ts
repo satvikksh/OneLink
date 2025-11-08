@@ -1,12 +1,9 @@
 import { NextResponse } from "next/server";
-// import { dbConnect } from "@/lib/ConnectDB";
 import { dbConnect } from "../../../../src/lib/ConnectDB";
 import { Post } from "../../../../src/models/posts";
 
 
-type Params = { params: { id: string } };
-
-export async function POST(req: Request, { params }: { params: { id: string } })  {
+export async function POST(req: Request, { params }: any)  {
   await dbConnect();
   const { id } = params;
   const { text } = await req.json();

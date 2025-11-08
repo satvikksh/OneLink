@@ -108,7 +108,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const allowed = new Set(["home", "network", "jobs", "chat", "profile", "notifications"]);
     if (!allowed.has(rawPage)) {
-      router.replace("/?page=home", { scroll: false }); // ← IMPORTANT: include ?page=home
+      router.replace("/", { scroll: false }); // ← IMPORTANT: include ?page=home
     }
   }, [rawPage, router]);
 
@@ -132,7 +132,7 @@ const App: React.FC = () => {
   // Show loader while checking auth
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-5  0 flex items-center justify-center">
         <OneSecondLoader />
       </div>
     );

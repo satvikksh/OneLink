@@ -324,10 +324,12 @@ const Navbar: React.FC<NavbarProps> = ({
   }, []);
 
   return (
-    <nav ref={navRef} className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 shadow-sm z-50">
+    <><nav ref={navRef} className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 shadow-sm z-50">
       {/* Main Navbar */}
+
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between h-14 px-4">
+
           {/* Left Section */}
           <div className="flex items-center space-x-4 flex-1">
             <button
@@ -355,8 +357,7 @@ const Navbar: React.FC<NavbarProps> = ({
                 <NavButton
                   item={item}
                   isActive={currentPage === item.key}
-                  onClick={() => handlePageChange(item.key)}
-                />
+                  onClick={() => handlePageChange(item.key)} />
                 {/* small tooltip on hover */}
                 <div className="absolute left-1/2 -translate-x-1/2 bottom-[-2.25rem] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                   <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded-md">
@@ -400,8 +401,7 @@ const Navbar: React.FC<NavbarProps> = ({
               <UserAvatar
                 initial={userInitial}
                 onClick={() => setShowAvatarMenu(v => !v)}
-                className="ml-2"
-              />
+                className="ml-2" />
               {/* Avatar menu */}
               {showAvatarMenu && (
                 <div
@@ -409,20 +409,20 @@ const Navbar: React.FC<NavbarProps> = ({
                   className="absolute right-0 mt-2 w-48 bg-white border border-gray-100 rounded-md shadow-lg z-40"
                 >
                   <button
-                    onClick={() => { handlePageChange("profile"); setShowAvatarMenu(false); }}
+                    onClick={() => { handlePageChange("profile"); setShowAvatarMenu(false); } }
                     className="w-full text-left px-4 py-2 hover:bg-gray-50"
                   >
                     View Profile
                   </button>
                   <button
-                    onClick={() => { alert("Settings coming soon"); setShowAvatarMenu(false); }}
+                    onClick={() => { alert("Settings coming soon"); setShowAvatarMenu(false); } }
                     className="w-full text-left px-4 py-2 hover:bg-gray-50"
                   >
                     Settings
                   </button>
                   <div className="border-t border-gray-100" />
                   <button
-                    onClick={() => { alert("Logged out (demo)"); setShowAvatarMenu(false); }}
+                    onClick={() => { alert("Logged out (demo)"); setShowAvatarMenu(false); } }
                     className="w-full text-left px-4 py-2 text-red-600 hover:bg-gray-50"
                   >
                     Logout
@@ -445,10 +445,9 @@ const Navbar: React.FC<NavbarProps> = ({
               </svg>
             </button>
 
-            <UserAvatar 
+            <UserAvatar
               initial={userInitial}
-              onClick={() => setShowAvatarMenu(v => !v)}
-            />
+              onClick={() => setShowAvatarMenu(v => !v)} />
           </div>
         </div>
 
@@ -459,8 +458,7 @@ const Navbar: React.FC<NavbarProps> = ({
               value={searchQuery}
               onChange={handleSearch}
               autoFocus
-              onClose={toggleSearch}
-            />
+              onClose={toggleSearch} />
           </div>
         )}
 
@@ -474,8 +472,7 @@ const Navbar: React.FC<NavbarProps> = ({
                   item={item}
                   isActive={currentPage === item.key}
                   onClick={() => handlePageChange(item.key)}
-                  isMobile
-                />
+                  isMobile />
               ))}
 
               <div className="border-t border-gray-200 pt-3 mt-3">
@@ -490,7 +487,7 @@ const Navbar: React.FC<NavbarProps> = ({
                   </button>
                 ))}
                 <button
-                  onClick={() => { onCreatePost(); setIsMobileMenuOpen(false); }}
+                  onClick={() => { onCreatePost(); setIsMobileMenuOpen(false); } }
                   className="flex items-center space-x-3 w-full px-3 py-2 rounded-md text-gray-700 hover:bg-gray-100"
                 >
                   <span className="text-lg w-6" aria-hidden="true">+</span>
@@ -504,6 +501,7 @@ const Navbar: React.FC<NavbarProps> = ({
 
       <StatsBar stats={statsToDisplay} />
     </nav>
+    <div aria-hidden className="h-14 lg:h-20" /></>
   );
 };
 

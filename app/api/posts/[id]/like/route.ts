@@ -7,9 +7,7 @@ import { dbConnect } from "../../../../src/lib/ConnectDB";
 import { Post } from "../../../../src/models/posts";
 
 
-type Params = { params: { id: string } };
-
-export async function POST(_req: Request, { params }: Params) {
+export async function POST(_req: Request, { params }: any) {
   try {
     await dbConnect();
 
