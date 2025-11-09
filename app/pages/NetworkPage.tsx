@@ -224,7 +224,7 @@ const NetworkPage: React.FC = () => {
         userStats={userStats}
       />
 
-      <div className="pt-5 pb-8">
+      <div className="pb-8">
         <div className="max-w-6xl mx-auto px-4">
           {/* Header */}
           <div className="mb-8">
