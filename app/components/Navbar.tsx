@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import useLogout from "../src/hooks/useLogout";
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -31,7 +32,8 @@ interface NavbarProps {
 // ============================================================================
 // CONSTANTS
 // ============================================================================
-
+  const { handleLogout } = useLogout(); 
+  
 const NAV_ITEMS: NavItem[] = [
   { key: "home", icon: "🏠", label: "Home" },
   { key: "network", icon: "👥", label: "My Network" },
@@ -67,6 +69,8 @@ const Logo: React.FC<{ onClick: () => void }> = ({ onClick }) => (
     </span>
   </button>
 );
+
+
 
 const SearchBar: React.FC<{
   value: string;
@@ -387,15 +391,20 @@ const Navbar: React.FC<NavbarProps> = ({
                 <span className="text-xs font-medium">{action.label}</span>
               </button>
             ))}
-
+<div>
+  
+</div>
+  {/* return (
+      <div className="font-bold text-xl">OneLink</div>
             <button
-              onClick={onCreatePost}
-              className="bg-blue-600 text-white px-4 py-1.5 rounded-full hover:bg-blue-700 transition-colors text-sm font-medium flex items-center space-x-1"
-              title="Create a post"
-            >
-              <span aria-hidden="true">+</span>
-              <span>Post</span>
+              onClick={handleLogout}
+              className="bg-red-800 text-white px-4 py-1.5 rounded-full hover:bg-blue-700 transition-colors text-sm font-medium flex items-center space-x-1"
+              title="Create a post">
+            
+            
+              <span>Logout</span>
             </button>
+  ); */}
 
             <div className="relative">
               <UserAvatar
@@ -422,7 +431,10 @@ const Navbar: React.FC<NavbarProps> = ({
                   </button>
                   <div className="border-t border-gray-100" />
                   <button
-                    onClick={() => { alert("Logged out (demo)"); setShowAvatarMenu(false); } }
+                    onClick={() => {
+                      setShowAvatarMenu(false);
+                      handleLogout(); // ✅ real logout
+                    }}
                     className="w-full text-left px-4 py-2 text-red-600 hover:bg-gray-50"
                   >
                     Logout
