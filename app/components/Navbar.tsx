@@ -97,10 +97,10 @@ const Logo = React.memo<{ onClick: () => void }>(({ onClick }) => (
     className="flex items-center gap-2 hover:opacity-90 transition-opacity"
     aria-label="Go to home"
   >
-    <div className="w-9 h-9 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 rounded-lg flex items-center justify-center shadow-lg">
-      <span className="text-white font-bold text-lg">OL</span>
+    <div className="w-9 h-9 bg-gradient-to-br rounded-lg flex items-center justify-center shadow-lg">
+   <img src="/logo.png" alt="logo" width={90} height={60} />
     </div>
-    <span className="hidden sm:block text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+    <span className="hidden sm:block text-xl font-bold bg-gradient-to-r bg-clip-text text-transparent">
       OneLink
     </span>
   </button>
@@ -493,18 +493,16 @@ const Navbar: React.FC<NavbarProps> = ({
 
         {/* Mobile Search */}
         {isSearchExpanded && (
-          <div className="lg:hidden absolute left-0 right-0 top-full bg-white border-b border-gray-200 z-50 shadow-md">
-    <div className="max-w-7xl mx-auto px-4 py-3">
-      <div className="w-full">
-        <SearchBar
-          value={searchQuery}
-          onChange={handleSearch}
-          autoFocus
-          // onClose={() => setSearch(false)}
-        />
-      </div>
-    </div>
-  </div>
+          <div className="lg:hidden px-4 pb-4 border-t border-gray-200 bg-white">
+            <div className="pt-3">
+              <SearchBar
+                value={searchQuery}
+                onChange={handleSearch}
+                autoFocus
+                onClose={toggleSearchExpanded}
+              />
+            </div>
+          </div>
         )}
 
         {/* Mobile Menu */}

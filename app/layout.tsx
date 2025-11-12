@@ -17,7 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </div>
 
         {/* Main wrapper with padding-top for fixed navbar */}
-       <main className="max-w-6xl mx-auto px-4 !pt-0">
+       <main className="max-w-6xl mx-auto px-4 pt-0">
 
           {children}
         </main>
