@@ -30,6 +30,7 @@ interface NavbarProps {
   userInitial?: string;
 }
 
+
 // ============================================================================
 // CONSTANTS
 // ============================================================================
@@ -94,13 +95,13 @@ const useDebounce = <T,>(value: T, delay: number): T => {
 const Logo = React.memo<{ onClick: () => void }>(({ onClick }) => (
   <button
     onClick={onClick}
-    className="flex items-center gap-2 hover:opacity-90 transition-opacity"
+    className="flex items-center gap-1 hover:opacity-90 transition-opacity"
     aria-label="Go to home"
   >
     <div className="w-9 h-9 bg-gradient-to-br rounded-lg flex items-center justify-center shadow-lg">
    <img src="/logo.png" alt="logo" width={90} height={60} />
     </div>
-    <span className="hidden sm:block text-xl font-bold bg-gradient-to-r bg-clip-text text-transparent">
+    <span className="text-zinc-950 font-bold text-lg">
       OneLink
     </span>
   </button>
@@ -140,26 +141,28 @@ const SearchBar = React.memo<SearchBarProps>(({ value, onChange, onClose, autoFo
   }, [onChange]);
 
   return (
-    <div className="relative w-full">
+    <div className="relative w-full left-25">
       <div className={`relative transition-all duration-200 ${isFocused ? 'scale-[1.01]' : ''}`}>
-        <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-all duration-200 ${
+        {/* <Search className={`left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-all duration-200 ${
           isFocused ? 'text-blue-600 scale-110' : 'text-gray-500'
-        }`} />
-        <input
-          ref={inputRef}
-          type="text"
-          placeholder="Search..."
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setTimeout(() => setIsFocused(false), 200)}
-          autoFocus={autoFocus}
-          className={`w-full px-4 py-2.5 pl-10 pr-10 rounded-lg text-sm outline-none transition-all duration-200 ${
-            isFocused 
-              ? 'bg-white ring-2 ring-blue-500 shadow-xl shadow-blue-100/50' 
-              : 'bg-gray-100 hover:bg-gray-150'
-          }`}
-        />
+        }`} /> */}
+       <input
+    ref={inputRef}
+    type="text"
+    placeholder="Search destinations, guides..."
+    value={value}
+    onChange={(e) => onChange(e.target.value)}
+    onFocus={() => setIsFocused(true)}
+    onBlur={() => setTimeout(() => setIsFocused(false), 200)}
+    autoFocus={autoFocus}
+    className={`w-full backdrop-blur-md bg-gray-50 border border-gray-300 dark:border-slate-600
+      px-10 py-3 rounded-2xl text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400
+      transition-all duration-300 ease-in-out outline-none
+      ${isFocused 
+        ? 'ring-1 ring-blue-500/70 shadow-[0_0_20px_rgba(37,99,235,0.25)] scale-[1.02]'
+        : 'hover:ring-1 hover:ring-gray-300 dark:hover:ring-slate-600'
+      }`}
+  />
         {value && (
           <button
             onClick={handleClear}
@@ -274,6 +277,7 @@ interface UserDropdownProps {
   onLogoutClick: () => void;
 }
 
+
 const UserDropdown = React.memo<UserDropdownProps>(({ 
   userInitial, 
   userName, 
@@ -304,6 +308,9 @@ const UserDropdown = React.memo<UserDropdownProps>(({
         </div>
         <ChevronDown className={`w-4 h-4 text-gray-600 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
+
+
+      
 
       {isOpen && (
         <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden z-50 animate-fade-in">
