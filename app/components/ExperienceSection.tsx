@@ -1,7 +1,18 @@
 import { useState } from 'react';
 import { Briefcase, Plus, Edit3, Trash2 } from 'lucide-react';
-import { Experience } from '../api/socket/profile/page';
 import ExperienceModal from './ExperienceModal';
+
+interface Experience {
+  id: string;
+  title: string;
+  company: string;
+  location?: string;
+  startDate: string;
+  endDate?: string;
+  current?: boolean;
+  description?: string;
+  [key: string]: any;
+}
 
 interface ExperienceSectionProps {
   experiences: Experience[];
@@ -10,11 +21,11 @@ interface ExperienceSectionProps {
   onDeleteExperience: (id: string) => void;
 }
 
-const ExperienceSection = ({ 
-  experiences, 
-  onAddExperience, 
+const ExperienceSection = ({
+  experiences,
+  onAddExperience,
   onUpdateExperience,
-  onDeleteExperience 
+  onDeleteExperience
 }: ExperienceSectionProps) => {
   const [showModal, setShowModal] = useState(false);
   const [editingExperience, setEditingExperience] = useState<Experience | null>(null);
@@ -41,7 +52,7 @@ const ExperienceSection = ({
     <div className="bg-white rounded-lg shadow-lg p-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-bold text-gray-900">Experience</h2>
-        <button 
+        <button
           onClick={() => setShowModal(true)}
           className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
         >
@@ -58,21 +69,25 @@ const ExperienceSection = ({
             </div>
             <div className="flex-1">
               <h3 className="font-semibold text-gray-900">{exp.title}</h3>
-              <p className="text-gray-600">{exp.company} • {exp.location}</p>
+              <p className="text-gray-600">{exp.company}{exp.location ? ` • ${exp.location}` : ''}</p>
               <p className="text-sm text-gray-500">
                 {exp.startDate} - {exp.endDate}
-                {exp.current && <span className="ml-2 bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs">Current</span>}
+                {exp.current && (
+                  <span className="ml-2 bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs">
+                    Current
+                  </span>
+                )}
               </p>
-              <p className="text-gray-700 mt-2">{exp.description}</p>
+              {exp.description && <p className="text-gray-700 mt-2">{exp.description}</p>}
             </div>
             <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button 
+              <button
                 onClick={() => setEditingExperience(exp)}
                 className="text-gray-400 hover:text-blue-600"
               >
                 <Edit3 size={16} />
               </button>
-              <button 
+              <button
                 onClick={() => handleDelete(exp.id)}
                 className="text-gray-400 hover:text-red-600"
               >
@@ -86,7 +101,7 @@ const ExperienceSection = ({
           <div className="text-center py-8 text-gray-500">
             <Briefcase size={48} className="mx-auto mb-4 text-gray-300" />
             <p>No experience added yet</p>
-            <button 
+            <button
               onClick={() => setShowModal(true)}
               className="text-blue-600 hover:text-blue-700 mt-2"
             >
@@ -96,7 +111,7 @@ const ExperienceSection = ({
         )}
       </div>
 
-      <ExperienceModal 
+      <ExperienceModal
         isOpen={showModal || !!editingExperience}
         onClose={() => {
           setShowModal(false);

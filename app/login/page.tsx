@@ -1,6 +1,7 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
 export default function LoginPage() {
@@ -15,8 +16,18 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // avoid state updates on unmounted component
+  const isMounted = useRef(true);
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (loading) return; // prevent double-submit
     setError(null);
     setSuccess(null);
 
@@ -31,31 +42,38 @@ export default function LoginPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, remember }),
-        credentials: "include", // 👈 ensure cookie is stored
+        credentials: "include", // ensure cookie is stored
         cache: "no-store",
       });
 
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        throw new Error(data?.error || "Invalid credentials");
+      // handle non-JSON or empty responses safely
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
       }
 
-      setSuccess("Login successful 🎉 Redirecting...");
+      if (!res.ok) {
+        // prefer server error message when available
+        throw new Error(data?.error || data?.message || "Invalid credentials");
+      }
+
+      if (isMounted.current) setSuccess("Login successful 🎉 Redirecting...");
 
       // next param handle: /login?next=/something
-      const next = searchParams.get("next");
+      const next = searchParams?.get?.("next");
       const target = data?.redirect || next || "/";
 
-      // small delay to show success state
+      // small delay to show success state (optional)
       setTimeout(() => {
-        // router.push keeps SPA feel; window.location.href also fine
+        // use router.push for client-side nav
         router.push(target);
-      }, 700);
+      }, 600);
     } catch (err: any) {
-      setError(err?.message || "Something went wrong");
+      if (isMounted.current) setError(err?.message || "Something went wrong");
     } finally {
-      setLoading(false);
+      if (isMounted.current) setLoading(false);
     }
   };
 
@@ -70,22 +88,32 @@ export default function LoginPage() {
 
         {/* Error or Success Message */}
         {error && (
-          <div className="text-sm bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded-lg mb-3">
+          <div
+            role="alert"
+            className="text-sm bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded-lg mb-3"
+          >
             {error}
           </div>
         )}
         {success && (
-          <div className="text-sm bg-green-50 border border-green-200 text-green-700 px-3 py-2 rounded-lg mb-3">
+          <div
+            role="status"
+            className="text-sm bg-green-50 border border-green-200 text-green-700 px-3 py-2 rounded-lg mb-3"
+          >
             {success}
           </div>
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           {/* Email */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              Email
+            </label>
             <input
+              id="email"
+              name="email"
               type="email"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-100 outline-none"
               placeholder="you@example.com"
@@ -93,14 +121,19 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
               required
+              aria-required
             />
           </div>
 
           {/* Password */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+              Password
+            </label>
             <div className="relative">
               <input
+                id="password"
+                name="password"
                 type={showPassword ? "text" : "password"}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-100 outline-none pr-10"
                 placeholder="••••••••"
@@ -108,11 +141,15 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
                 required
+                aria-required
               />
               <button
                 type="button"
+                aria-pressed={showPassword}
+                aria-label={showPassword ? "Hide password" : "Show password"}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500"
-                onClick={() => setShowPassword(!showPassword)}
+                onClick={() => setShowPassword((s) => !s)}
+                disabled={loading}
               >
                 {showPassword ? "Hide" : "Show"}
               </button>
@@ -127,12 +164,13 @@ export default function LoginPage() {
                 checked={remember}
                 onChange={(e) => setRemember(e.target.checked)}
                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-200"
+                disabled={loading}
               />
               Remember me
             </label>
-            <a href="/forgot-password" className="text-blue-600 hover:text-blue-700 font-medium">
+            <Link href="/forgot-password" className="text-blue-600 hover:text-blue-700 font-medium">
               Forgot password?
-            </a>
+            </Link>
           </div>
 
           {/* Submit */}
@@ -140,6 +178,7 @@ export default function LoginPage() {
             type="submit"
             disabled={loading}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition disabled:opacity-60"
+            aria-disabled={loading}
           >
             {loading ? "Signing in..." : "Sign in"}
           </button>
@@ -160,6 +199,7 @@ export default function LoginPage() {
               type="button"
               onClick={() => alert(`${provider} login coming soon!`)}
               className="border border-gray-300 rounded-lg py-2 text-sm hover:bg-gray-50"
+              disabled={loading}
             >
               {provider}
             </button>
@@ -169,9 +209,9 @@ export default function LoginPage() {
         {/* Footer */}
         <p className="mt-6 text-center text-sm text-gray-600">
           Don’t have an account?{" "}
-          <a href="/register" className="text-blue-600 hover:text-blue-700 font-medium">
+          <Link href="/register" className="text-blue-600 hover:text-blue-700 font-medium">
             Create one
-          </a>
+          </Link>
         </p>
       </div>
     </div>

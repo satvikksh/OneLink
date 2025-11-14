@@ -1,11 +1,21 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { UserProfile } from '../api/socket/profile/page';
+// If you have a shared UserProfile type elsewhere, prefer importing it:
+// import { UserProfile } from '../api/socket/profile/page';
+
+interface UserProfile {
+  name?: string;
+  headline?: string;
+  location?: string;
+  email?: string;
+  phone?: string;
+  website?: string;
+}
 
 interface EditContactModalProps {
   isOpen: boolean;
   onClose: () => void;
-  profile: UserProfile;
+  profile?: UserProfile | null;
   onSave: (updates: Partial<UserProfile>) => void;
 }
 
@@ -21,14 +31,14 @@ const EditContactModal = ({ isOpen, onClose, profile, onSave }: EditContactModal
 
   useEffect(() => {
     if (profile) {
-      setFormData({
-        name: profile.name,
-        headline: profile.headline,
-        location: profile.location,
-        email: profile.email,
-        phone: profile.phone,
-        website: profile.website
-      });
+      // setFormData({
+      //   name: profile.name,
+      //   headline: profile.headline,
+      //   location: profile.location,
+      //   email: profile.email,
+      //   phone: profile.phone,
+      //   website: profile.website
+      // });
     }
   }, [profile, isOpen]);
 

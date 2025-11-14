@@ -1,7 +1,17 @@
 import { useState } from 'react';
 import { GraduationCap, Plus, Edit3, Trash2 } from 'lucide-react';
-import { Education } from '../api/socket/profile/page';
 import EducationModal from './EducationModal';
+
+interface Education {
+  id: string;
+  school: string;
+  degree: string;
+  field: string;
+  startDate: string;
+  endDate?: string;
+  current?: boolean;
+  [key: string]: any; // allow extra fields if needed
+}
 
 interface EducationSectionProps {
   education: Education[];
@@ -10,11 +20,11 @@ interface EducationSectionProps {
   onDeleteEducation: (id: string) => void;
 }
 
-const EducationSection = ({ 
-  education, 
-  onAddEducation, 
+const EducationSection = ({
+  education,
+  onAddEducation,
   onUpdateEducation,
-  onDeleteEducation 
+  onDeleteEducation
 }: EducationSectionProps) => {
   const [showModal, setShowModal] = useState(false);
   const [editingEducation, setEditingEducation] = useState<Education | null>(null);
@@ -41,7 +51,7 @@ const EducationSection = ({
     <div className="bg-white rounded-lg shadow-lg p-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-bold text-gray-900">Education</h2>
-        <button 
+        <button
           onClick={() => setShowModal(true)}
           className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
         >
@@ -65,13 +75,13 @@ const EducationSection = ({
               </p>
             </div>
             <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button 
+              <button
                 onClick={() => setEditingEducation(edu)}
                 className="text-gray-400 hover:text-blue-600"
               >
                 <Edit3 size={16} />
               </button>
-              <button 
+              <button
                 onClick={() => handleDelete(edu.id)}
                 className="text-gray-400 hover:text-red-600"
               >
@@ -85,7 +95,7 @@ const EducationSection = ({
           <div className="text-center py-8 text-gray-500">
             <GraduationCap size={48} className="mx-auto mb-4 text-gray-300" />
             <p>No education added yet</p>
-            <button 
+            <button
               onClick={() => setShowModal(true)}
               className="text-blue-600 hover:text-blue-700 mt-2"
             >
@@ -95,13 +105,13 @@ const EducationSection = ({
         )}
       </div>
 
-      <EducationModal 
+      <EducationModal
         isOpen={showModal || !!editingEducation}
         onClose={() => {
           setShowModal(false);
           setEditingEducation(null);
         }}
-        education={editingEducation || undefined}
+        // education={editingEducation || undefined}
         onSave={editingEducation ? handleUpdate : handleAdd}
       />
     </div>

@@ -1,14 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import ProfileHeader from '../components/ProfileHeader';
-import AboutSection from '../components/AboutSection';
-import ExperienceSection from '../components/ExperienceSection';
-import EducationSection from '../components/EducationSection';
-import SkillsSection from '../components/SkillsSection';
-import StatsSection from '../components/StatsSection';
-import EditCoverModal from '../components/EditCoverModal';
-import EditProfilePhotoModal from '../components/EditProfilePhotoModal';
+// import ProfileHeader from '../components/ProfileHeader';
+import AboutSection from './components/AboutSection';
+import ExperienceSection from './components/ExperienceSection';
+import EducationSection from './components/EducationSection';
+import SkillsSection from './components/SkillsSection';
+import StatsSection from './components/StatsSection';
+import EditCoverModal from './components/EditCoverModal';
+import EditProfilePhotoModal from './components/EditProfilePhotoModal';
 
 export interface UserProfile {
   id: string;
@@ -174,11 +174,11 @@ const ProfilePage = () => {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mt-20 relative z-10">
-        <ProfileHeader 
+        {/* <ProfileHeader 
           profile={profile}
           onEditProfilePhoto={() => setShowProfilePhotoModal(true)}
           onUpdateProfile={updateProfile}
-        />
+        /> */}
       </div>
 
       {/* Main Content */}
@@ -191,19 +191,19 @@ const ProfilePage = () => {
               onUpdateAbout={(about) => updateProfile({ about })}
             />
             
-            <ExperienceSection 
+            {/* <ExperienceSection 
               experiences={experiences}
               onAddExperience={addExperience}
               onUpdateExperience={updateExperience}
               onDeleteExperience={deleteExperience}
-            />
+            /> */}
             
-            <EducationSection 
+            {/* <EducationSection 
               education={education}
               onAddEducation={addEducation}
               onUpdateEducation={updateEducation}
               onDeleteEducation={deleteEducation}
-            />
+            /> */}
           </div>
 
           {/* Right Column */}

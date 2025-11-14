@@ -1,6 +1,15 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { Education } from '../api/socket/profile/page';
+
+interface Education {
+  id?: string;
+  school: string;
+  degree: string;
+  field: string;
+  startDate: string;
+  endDate: string;
+  current: boolean;
+}
 
 interface EducationModalProps {
   isOpen: boolean;

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
-import Navbar from "../components/Navbar";
+import Navbar from "./components/Navbar";
 import { useRouter } from "next/navigation";
 
 interface Notification {

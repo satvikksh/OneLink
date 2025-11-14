@@ -1,6 +1,17 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { Experience } from '../api/socket/profile/page';
+
+interface Experience {
+  id: string;
+  title: string;
+  company: string;
+  location?: string;
+  startDate: string;
+  endDate?: string;
+  current?: boolean;
+  description?: string;
+  [key: string]: any;
+}
 
 interface ExperienceModalProps {
   isOpen: boolean;
@@ -10,7 +21,7 @@ interface ExperienceModalProps {
 }
 
 const ExperienceModal = ({ isOpen, onClose, experience, onSave }: ExperienceModalProps) => {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<Omit<Experience, 'id'>>({
     title: '',
     company: '',
     location: '',
@@ -25,11 +36,11 @@ const ExperienceModal = ({ isOpen, onClose, experience, onSave }: ExperienceModa
       setFormData({
         title: experience.title,
         company: experience.company,
-        location: experience.location,
+        location: experience.location || '',
         startDate: experience.startDate,
-        endDate: experience.endDate,
-        current: experience.current,
-        description: experience.description
+        endDate: experience.endDate || '',
+        current: !!experience.current,
+        description: experience.description || ''
       });
     } else {
       setFormData({
@@ -140,8 +151,8 @@ const ExperienceModal = ({ isOpen, onClose, experience, onSave }: ExperienceModa
               type="checkbox"
               id="current"
               checked={formData.current}
-              onChange={(e) => setFormData(prev => ({ 
-                ...prev, 
+              onChange={(e) => setFormData(prev => ({
+                ...prev,
                 current: e.target.checked,
                 endDate: e.target.checked ? 'Present' : ''
               }))}

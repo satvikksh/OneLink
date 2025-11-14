@@ -9,12 +9,12 @@ import Footer from "./components/Footer";
 
 type PageKey = "home" | "network" | "jobs" | "chat" | "profile" | "notifications";
 
-const HomePage     = dynamic(() => import("./pages/HomePage"));
-const NetworkPage  = dynamic(() => import("./pages/NetworkPage"));
+const HomePage     = dynamic(() => import("./HomePage"));
+const NetworkPage  = dynamic(() => import("./NetworkPage"));
 const JobsPage     = dynamic(() => import("./jobs/page"));
 const ChatPage     = dynamic(() => import("./chat/page"));
-const ProfilePage  = dynamic(() => import("./pages/ProfilePage"));
-const Notification = dynamic(() => import("./pages/Notification"));
+const ProfilePage  = dynamic(() => import("./ProfilePage"));
+const Notification = dynamic(() => import("./Notification"));
 
 const PAGE_COMPONENTS: Record<PageKey, React.ComponentType> = {
   home: HomePage,
