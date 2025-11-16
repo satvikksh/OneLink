@@ -8,6 +8,7 @@ export interface User {
   email: string;
   password: string; // bcrypt hash stored here
   role: "student" | "recruiter" | "creator";
+  signature?: string | null; // device / unique signature (not returned by default)
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -35,20 +36,30 @@ const UserSchema = new Schema<User>(
     },
     // bcrypt hash — never return by default
     password: { type: String, required: true, select: false },
+
+    // single unique signature per user (device identifier)
+    // select: false => not returned unless explicitly requested (.select('+signature'))
+    // unique + sparse: only non-null signatures must be unique (allows existing nulls)
+    signature: { type: String, default: null, select: false, unique: true, sparse: true },
+
     role: {
       type: String,
       enum: ["student", "recruiter", "creator"],
       default: "student",
       required: true,
     },
+
   },
   {
     timestamps: true,
     versionKey: false,
     toJSON: {
       transform(_doc, ret) {
-        // cleanup output
-        // delete ret.password;
+        // cleanup output: remove sensitive fields
+        if (ret) {
+          delete (ret as any).password;
+          delete (ret as any).signature;
+        }
         return ret;
       },
     },
@@ -58,6 +69,7 @@ const UserSchema = new Schema<User>(
 /** 3) Indexes (ensure uniqueness at DB level too) */
 UserSchema.index({ email: 1 }, { unique: true });
 UserSchema.index({ username: 1 }, { unique: true });
+// signature index is declared inline with the field (unique + sparse)
 
 /** 4) Defensive normalization */
 UserSchema.pre("validate", function (next) {

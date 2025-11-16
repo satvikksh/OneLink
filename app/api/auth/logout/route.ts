@@ -1,15 +1,22 @@
+// app/api/auth/logout/route.ts
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { getSessionBySignedToken, destroySession } from "../../../src/lib/session";
 
-export async function POST() {
-  const res = NextResponse.json({ message: "Logout successful" }, { status: 200 });
-
-  // delete cookie (agar cookie-based login use karte ho)
-  res.cookies.set("auth_token", "", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    expires: new Date(0),
-    path: "/",
-  });
-
-  return res;
+export async function POST(req: Request) {
+  try {
+    const jar = cookies();
+    const signedSession = (await jar).get("session_id")?.value;
+    const session = await getSessionBySignedToken(signedSession);
+    if (session) {
+      await destroySession(session.sid);
+    }
+    const res = NextResponse.json({ ok: true });
+    res.cookies.set({ name: "auth_token", value: "", path: "/", maxAge: 0 });
+    res.cookies.set({ name: "session_id", value: "", path: "/", maxAge: 0 });
+    return res;
+  } catch (err) {
+    console.error("Logout error", err);
+    return NextResponse.json({ error: "Logout failed" }, { status: 500 });
+  }
 }

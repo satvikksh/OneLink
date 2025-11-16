@@ -1,74 +1,96 @@
 // app/api/auth/me/route.ts
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { jwtVerify } from "jose";
-import mongoose from "mongoose";
 import { dbConnect } from "../../../src/lib/ConnectDB";
 import User from "../../../src/models/users";
+import { getSessionBySignedToken, destroySession } from "../../../src/lib/session";
 
-const COOKIE_NAME = "auth_token";
-const getSecret = () => new TextEncoder().encode(process.env.JWT_SECRET || "default_secret");
-
-export async function GET() {
-  const jar = cookies();
-  const token = (await jar).get(COOKIE_NAME)?.value;
-
-  if (!token) {
-    return NextResponse.json({ user: null, error: "NO_TOKEN" }, { status: 401 });
-  }
-
+export async function GET(req: Request) {
   try {
-    // verify token
-    const { payload } = await jwtVerify(token, getSecret());
+    // get signed session cookie
+    const jar = cookies();
+    const signedSession = (await jar).get("session_id")?.value;
 
-    // normalize possible payload shapes
-    // payload may contain { id: "..."} or { sub: "..." } or { email: "..." } etc.
-    const maybeId = (payload as any).id ?? (payload as any).sub ?? null;
-    const maybeEmail = (payload as any).email ?? null;
-
-    await dbConnect();
-
-    let user: any = null;
-
-    if (maybeId) {
-      // if id is an object, convert to string (handles ObjectId-like payloads)
-      const idStr = typeof maybeId === "object" ? String(maybeId) : maybeId;
-
-      // validate ObjectId format first
-      if (mongoose.isValidObjectId(idStr)) {
-        user = await User.findById(idStr).select("-password").lean();
-      } else {
-        // not a valid ObjectId string — maybe it's an email or username — fallback below
-        user = null;
-      }
+    // prefer explicit header, fallback to device_key cookie
+    let deviceKeyHeader: string | null = null;
+    try { deviceKeyHeader = req.headers.get("x-device-key") || null; } catch {}
+    if (!deviceKeyHeader) {
+      try {
+        const ck = (await jar).get("device_key")?.value;
+        if (ck) deviceKeyHeader = ck;
+      } catch {}
     }
 
-    // fallback: if we didn't find via id, try using email from payload (or id might actually be an email)
-    if (!user && maybeEmail) {
-      user = await User.findOne({ email: (maybeEmail as string).toLowerCase().trim() })
-        .select("-password")
-        .lean();
+    // debug log
+    try { console.log("ME: received x-device-key header:", deviceKeyHeader ? "[present]" : "[missing]"); } catch {}
+
+    const session = await getSessionBySignedToken(signedSession);
+
+    if (!session) {
+      return NextResponse.json({ user: null, error: "UNAUTH" }, { status: 401 });
     }
 
-    // extra fallback: sometimes token's id was actually an email string
-    if (!user && maybeId && typeof maybeId === "string" && maybeId.includes("@")) {
-      user = await User.findOne({ email: maybeId.toLowerCase().trim() }).select("-password").lean();
-    }
-
-    if (!user) {
-      // clear cookie to prevent repeated verification attempts with bad token
-      const res = NextResponse.json({ user: null, error: "USER_NOT_FOUND" }, { status: 401 });
-      res.cookies.set(COOKIE_NAME, "", { path: "/", httpOnly: true, maxAge: 0 });
+    const sessionUser = (session.user as any);
+    if (!sessionUser || !sessionUser._id) {
+      try { await destroySession(session.sid); } catch {}
+      const res = NextResponse.json({ user: null, error: "INVALID_SESSION" }, { status: 401 });
+      res.cookies.set("session_id", "", { path: "/", httpOnly: true, maxAge: 0 });
+      res.cookies.set("auth_token", "", { path: "/", httpOnly: true, maxAge: 0 });
       return res;
     }
 
-    // success
+    // deviceKey check: require presence and match to recorded session.deviceKey
+    if (session.deviceKey) {
+      if (!deviceKeyHeader || deviceKeyHeader !== String(session.deviceKey)) {
+        try { 
+          console.warn("ME: deviceKey mismatch — destroying session", { sid: session.sid });
+          await destroySession(session.sid);
+        } catch (e) { console.error("ME: destroySession error", e); }
+
+        const res = NextResponse.json({ user: null, error: "SIGNATURE_MISMATCH" }, { status: 401 });
+        res.cookies.set("session_id", "", { path: "/", httpOnly: true, maxAge: 0 });
+        res.cookies.set("auth_token", "", { path: "/", httpOnly: true, maxAge: 0 });
+        return res;
+      }
+    } else {
+      // safer behaviour: destroy an unsafe session without deviceKey
+      try { 
+        console.warn("ME: session exists without deviceKey — destroying", { sid: session.sid });
+        await destroySession(session.sid); 
+      } catch (e) {}
+      const res = NextResponse.json({ user: null, error: "UNSAFE_SESSION" }, { status: 401 });
+      res.cookies.set("session_id", "", { path: "/", httpOnly: true, maxAge: 0 });
+      res.cookies.set("auth_token", "", { path: "/", httpOnly: true, maxAge: 0 });
+      return res;
+    }
+
+    // fetch fresh user including signature (do not mix include/exclude)
+    await dbConnect();
+    const user = await User.findById(String(sessionUser._id)).select("+signature").lean();
+    if (!user) {
+      try { await destroySession(session.sid); } catch {}
+      const res = NextResponse.json({ user: null, error: "USER_NOT_FOUND" }, { status: 401 });
+      res.cookies.set("session_id", "", { path: "/", httpOnly: true, maxAge: 0 });
+      res.cookies.set("auth_token", "", { path: "/", httpOnly: true, maxAge: 0 });
+      return res;
+    }
+
+    if (String(sessionUser._id) !== String(user._id)) {
+      try { await destroySession(session.sid); } catch {}
+      const res = NextResponse.json({ user: null, error: "SESSION_USER_MISMATCH" }, { status: 401 });
+      res.cookies.set("session_id", "", { path: "/", httpOnly: true, maxAge: 0 });
+      res.cookies.set("auth_token", "", { path: "/", httpOnly: true, maxAge: 0 });
+      return res;
+    }
+
+    // success: remove sensitive
+    if ((user as any).password) delete (user as any).password;
+    if ((user as any).signature) delete (user as any).signature;
+
+    try { console.log("ME: auth success", { userId: String(user._id), sessionId: session.sid }); } catch {}
     return NextResponse.json({ user }, { status: 200 });
-  } catch (err: any) {
-    console.error("/api/auth/me verify error:", err?.message ?? err);
-    // clear cookie when token invalid/expired
-    const res = NextResponse.json({ user: null, error: "TOKEN_EXPIRED_OR_INVALID" }, { status: 401 });
-    res.cookies.set(COOKIE_NAME, "", { path: "/", httpOnly: true, maxAge: 0 });
-    return res;
+  } catch (err) {
+    console.error("/api/auth/me error:", err);
+    return NextResponse.json({ user: null, error: "SERVER_ERROR" }, { status: 500 });
   }
 }

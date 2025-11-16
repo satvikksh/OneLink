@@ -242,14 +242,14 @@ export default function RegisterPage() {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-950">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Full name</label>
                   <input
                     value={form.name}
                     onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
                     className={`w-full rounded-lg border px-3 py-2 outline-none focus:ring-2 ${
-                      errors.name ? "border-red-300 focus:ring-red-100" : "border-slate-300 focus:ring-blue-100"
+                      errors.name ? "border-red-300 focus:ring-red-100" : "border-slate-300 focus:ring-blue-300"
                     }`}
                     placeholder="Satvik kushwaha"
                     autoComplete="name"
