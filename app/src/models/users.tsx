@@ -66,9 +66,7 @@ const UserSchema = new Schema<User>(
   }
 );
 
-/** 3) Indexes (ensure uniqueness at DB level too) */
-UserSchema.index({ email: 1 }, { unique: true });
-UserSchema.index({ username: 1 }, { unique: true });
+
 // signature index is declared inline with the field (unique + sparse)
 
 /** 4) Defensive normalization */

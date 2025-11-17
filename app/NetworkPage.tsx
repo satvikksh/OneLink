@@ -33,6 +33,50 @@ interface Invitation {
   message?: string;
 }
 
+/** --- Safe fetch helper --- **/
+async function safeJsonFetch(url: string, opts: RequestInit = {}) {
+  const res = await fetch(url, { credentials: "include", ...opts });
+  const ct = res.headers.get("content-type") || "";
+
+  // non-OK responses: try to parse JSON body (if any) for error message
+  if (!res.ok) {
+    let body: any = null;
+    if (ct.includes("application/json")) {
+      try {
+        body = await res.json();
+      } catch (e) {
+        body = null;
+      }
+    } else {
+      try {
+        const text = await res.text();
+        body = text || null;
+      } catch {
+        body = null;
+      }
+    }
+    const err = new Error(`Request failed ${res.status}`);
+    (err as any).status = res.status;
+    (err as any).body = body;
+    throw err;
+  }
+
+  // 204 No Content
+  if (res.status === 204) return null;
+
+  if (!ct.includes("application/json")) {
+    // not JSON — return null so caller can decide
+    return null;
+  }
+
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+/* ---------------- Main Component ---------------- */
 const NetworkPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"connections" | "invitations" | "people">("connections");
   const [connections, setConnections] = useState<Connection[]>([]);
@@ -60,7 +104,7 @@ const NetworkPage: React.FC = () => {
     { id: "s2", name: "Sophia Garcia", title: "Product Designer", avatar: "/avatars/sophia.jpg", mutualConnections: 3, company: "Facebook", location: "New York, NY" },
   ];
 
-  // Initialize UI with local mocks first, then fetch real users
+  // Initialize local UI first
   useEffect(() => {
     setConnections(initialConnections);
     setInvitations(initialInvitations);
@@ -73,33 +117,20 @@ const NetworkPage: React.FC = () => {
     (async () => {
       setLoadingUsers(true);
       try {
-        const res = await fetch("/api/users", { cache: "no-store" });
-        // console.log("GET /api/users status:", res.status);
-
-        // Accept either array response or { users: [...] } object
-        const data = await res.json().catch(() => null);
-        // console.log("GET /api/users body:", data);
+        // use safe helper which throws on non-ok
+        const data = await safeJsonFetch("/api/users", { cache: "no-store" });
 
         if (!active) return;
 
-        if (!res.ok) {
-          console.error("Failed to load users:", data);
-          // don't blow away local suggestions entirely; show empty or keep mocks
-          setSuggestedPeople(prev => prev); // keep current (mocks)
-          return;
-        }
-
-        // normalize different shapes: if API returns array directly or { users: [...] }
+        // data could be null, an array, or an object { users: [...] }
         const usersArr: any[] = Array.isArray(data) ? data : (Array.isArray(data?.users) ? data.users : []);
 
-        // If empty array from server, keep current suggested people (optional)
-        if (!usersArr.length) {
-          setSuggestedPeople(prev => prev); // keep mock suggestions
+        if (!Array.isArray(usersArr) || usersArr.length === 0) {
+          // keep local mocks — nothing to replace
           setLoadingUsers(false);
           return;
         }
 
-        // Map server user -> UI User shape
         const mapped: User[] = usersArr.map((u: any, idx: number) => {
           const id = u._id ?? u.id ?? String(u.username ?? `u-${idx}-${Date.now()}`);
           const name = u.name ?? u.fullName ?? u.username ?? "Unknown";
@@ -122,9 +153,11 @@ const NetworkPage: React.FC = () => {
         });
 
         setSuggestedPeople(mapped);
-      } catch (err) {
-        console.error("Error fetching users:", err);
-        // keep existing suggestions (mocks) as fallback
+      } catch (err: any) {
+        // robust logging so you know why it failed
+        console.error("Failed to load users (safeJsonFetch):", err?.message ?? err, { status: err?.status, body: err?.body ?? null });
+        // keep mocks (do not remove existing local suggestions)
+        setSuggestedPeople(prev => prev);
       } finally {
         if (active) setLoadingUsers(false);
       }
@@ -133,7 +166,7 @@ const NetworkPage: React.FC = () => {
     return () => { active = false; };
   }, []);
 
-  // Filter logic
+  // Filter logic (unchanged)
   const filteredConnections = useMemo(() => {
     return connections.filter(connection =>
       connection.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -156,7 +189,7 @@ const NetworkPage: React.FC = () => {
     );
   }, [suggestedPeople, searchQuery]);
 
-  // Handlers
+  // Handlers (unchanged)
   const handleAcceptInvitation = (invitationId: string) => {
     const invitation = invitations.find(inv => inv.id === invitationId);
     if (!invitation) return;
@@ -185,7 +218,6 @@ const NetworkPage: React.FC = () => {
       id: `inv-${Date.now()}`,
       name: person.name,
       title: person.title ?? "Member",
-      // avatar: person.avatar ?? undefined,
       mutualConnections: person.mutualConnections ?? 0,
       avatar: ""
     };

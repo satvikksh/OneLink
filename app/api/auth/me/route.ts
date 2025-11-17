@@ -87,7 +87,7 @@ export async function GET(req: Request) {
     if ((user as any).password) delete (user as any).password;
     if ((user as any).signature) delete (user as any).signature;
 
-    try { console.log("ME: auth success", { userId: String(user._id), sessionId: session.sid }); } catch {}
+    try { console.log("ME: auth success"); } catch {}
     return NextResponse.json({ user }, { status: 200 });
   } catch (err) {
     console.error("/api/auth/me error:", err);

@@ -52,6 +52,48 @@ const roleToTitle = (role?: string) =>
   : role === "student" ? "Student"
   : "Professional";
 
+
+
+// safeJsonFetch (improved)
+export async function safeJsonFetch(url: string, opts: RequestInit = {}) {
+  // add device key header if present in localStorage
+  const headers = new Headers(opts.headers || {});
+  try {
+    if (typeof window !== "undefined") {
+      const dk = localStorage.getItem("onelink_device_key");
+      if (dk) headers.set("x-device-key", dk);
+    }
+  } catch (e) {
+    // ignore localStorage errors
+  }
+  if (!headers.get("Content-Type")) headers.set("Content-Type", "application/json");
+  const res = await fetch(url, { credentials: "include", ...opts, headers });
+
+  const ct = res.headers.get("content-type") || "";
+
+  // handle non-ok responses: try parse JSON error body
+  if (!res.ok) {
+    if (ct.includes("application/json")) {
+      try {
+        const err = await res.json();
+        throw new Error(err?.error || err?.message || `Request failed ${res.status}`);
+      } catch {
+        throw new Error(`Request failed ${res.status}`);
+      }
+    }
+    throw new Error(`Request failed ${res.status}`);
+  }
+
+  if (res.status === 204) return null;
+  if (!ct.includes("application/json")) return null;
+
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
 /* ============= UI Components ============= */
 function Avatar({ letter, size = 40 }: { letter: string; size?: number }) {
   return (
@@ -59,7 +101,7 @@ function Avatar({ letter, size = 40 }: { letter: string; size?: number }) {
       className="rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-semibold"
       style={{ width: size, height: size, fontSize: Math.max(12, size / 2.5) }}
     >
-      {letter.toUpperCase()}
+      {letter ? letter.toUpperCase() : "?"}
     </div>
   );
 }
@@ -131,12 +173,12 @@ export default function HomePage() {
     let active = true;
     (async () => {
       try {
-        const res = await fetch("/api/auth/me", { cache: "no-store" });
-        const data = await res.json().catch(() => ({}));
+        const res = await safeJsonFetch("/api/auth/me", { cache: "no-store", method: "GET" });
+        // safeJsonFetch throws on non-ok; if it returned null or object, we inspect
+        const data = res || {};
         if (!active) return;
 
-        if (!res.ok || !data?.user) {
-          // not logged in → go to login and come back here after
+        if (!data?.user) {
           const next = typeof window !== "undefined" ? window.location.pathname + window.location.search : "/";
           router.replace(`/login?next=${encodeURIComponent(next)}`);
           return;
@@ -144,20 +186,20 @@ export default function HomePage() {
 
         setCurrentUser(data.user);
 
-        // seed profile from DB user (no UI loss)
         const name: string = data.user.name || "User";
         const title: string =
           data.user.title || data.user.headline || roleToTitle(data.user.role);
-        const avatar = "*"; // keep your avatar style; letter bubble uses name[0]
+        const avatar = "*";
 
         setProfile(prev => ({
           name,
           title,
-          avatar: avatar,
+          avatar,
           profileViews: prev?.profileViews ?? 0,
           postImpressions: prev?.postImpressions ?? 0,
         }));
-      } catch {
+      } catch (err) {
+        // not authenticated or error
         const next = typeof window !== "undefined" ? window.location.pathname + window.location.search : "/";
         router.replace(`/login?next=${encodeURIComponent(next)}`);
       } finally {
@@ -167,33 +209,48 @@ export default function HomePage() {
     return () => { active = false; };
   }, [router]);
 
-  /* ============= Fetch posts (unchanged) ============= */
+  /* ============= Fetch posts (fixed mapping + robust) ============= */
   useEffect(() => {
+    let mounted = true;
     (async () => {
       try {
-        const res = await fetch("/api/posts", { cache: "no-store" });
-        const data = await res.json();
-        const mapped: UIPost[] = data.map((d: any, i: number) => ({
-          mongoId: d._id,
+        const data = await safeJsonFetch('/api/posts', { cache: 'no-store', method: 'GET' });
+        if (!mounted) return;
+
+        // Normalize possible shapes:
+        // - API may return array directly -> data = [ ... ]
+        // - API may return { posts: [...] } -> data.posts
+        // - fallback -> []
+        const postsFromApi: any[] = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.posts)
+            ? data.posts
+            : [];
+
+        // Map safely
+        const mapped: UIPost[] = postsFromApi.map((d: any, i: number) => ({
+          mongoId: d._id ?? d.id ?? `temp-${i}`,
           id: i + 1,
-          user: d.user,
-          avatar: d.avatar,
-          title: d.title,
-          content: d.content,
-          timestamp: new Date(d.createdAt || Date.now()).toLocaleString(),
-          likes: d.likes ?? 0,
-          comments: Array.isArray(d.comments) ? d.comments.length : (d.comments ?? 0),
-          shares: d.shares ?? 0,
+          user: d.user ?? d.author?.name ?? (d.author ?? "Unknown"),
+          avatar: d.avatar ?? (d.author?.avatar ?? ""),
+          title: d.title ?? "",
+          content: d.content ?? d.body ?? "",
+          timestamp: new Date(d.createdAt ?? d.created_at ?? Date.now()).toLocaleString(),
+          likes: typeof d.likes === "number" ? d.likes : 0,
+          comments: Array.isArray(d.comments) ? d.comments.length : (typeof d.comments === "number" ? d.comments : 0),
+          shares: typeof d.shares === "number" ? d.shares : 0,
           isLiked: false,
-          createdAt: d.createdAt,
+          createdAt: d.createdAt ?? d.created_at,
         }));
         setPosts(mapped);
       } catch (error) {
         console.error("Failed to fetch posts:", error);
+        setPosts([]); // fallback
       } finally {
         setLoading(false);
       }
     })();
+    return () => { mounted = false; };
   }, []);
 
   /* ============= Stats (unchanged) ============= */
@@ -243,6 +300,7 @@ export default function HomePage() {
     try {
       const res = await fetch("/api/posts", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user: profile.name,
@@ -254,27 +312,38 @@ export default function HomePage() {
       
       if (!res.ok) throw new Error("create failed");
       
-      const created = await res.json();
+      const createdRaw = await res.json().catch(() => null);
+      // API might return { post: {...} } or the post object directly
+      const created = createdRaw?.post ? createdRaw.post : (createdRaw ?? null);
+
+      // if server returns nothing meaningful, keep optimistic and stop
+      if (!created) {
+        // best-effort: keep optimistic and inform user
+        alert("Post published (server did not return full response).");
+        return;
+      }
+
       setPosts(prev => {
         const others = prev.filter(p => p.mongoId !== optimistic.mongoId);
         return [{
-          mongoId: created._id,
+          mongoId: created._id ?? created.id ?? `created-${Date.now()}`,
           id: optimistic.id,
-          user: created.user,
-          avatar: created.avatar,
-          title: created.title,
-          content: created.content,
-          timestamp: new Date(created.createdAt).toLocaleString(),
-          likes: created.likes ?? 0,
-          comments: Array.isArray(created.comments) ? created.comments.length : (created.comments ?? 0),
-          shares: created.shares ?? 0,
+          user: created.user ?? created.author ?? profile.name,
+          avatar: created.avatar ?? profile.avatar,
+          title: created.title ?? optimistic.title,
+          content: created.content ?? created.body ?? optimistic.content,
+          timestamp: new Date(created.createdAt ?? created.created_at ?? Date.now()).toLocaleString(),
+          likes: typeof created.likes === "number" ? created.likes : 0,
+          comments: Array.isArray(created.comments) ? created.comments.length : (typeof created.comments === "number" ? created.comments : 0),
+          shares: typeof created.shares === "number" ? created.shares : 0,
           isLiked: false,
-          createdAt: created.createdAt,
+          createdAt: created.createdAt ?? created.created_at,
         }, ...others];
       });
       
       setProfile(p => p ? { ...p, postImpressions: p.postImpressions + 1 } : p);
-    } catch {
+    } catch (err) {
+      console.error("create post failed:", err);
       setPosts(prev => prev.filter(p => p.mongoId !== optimistic.mongoId));
       alert("Failed to publish post");
     }
@@ -291,7 +360,7 @@ export default function HomePage() {
     ));
     
     try {
-      await fetch(`/api/posts/${target.mongoId}/like`, { method: "POST" });
+      await fetch(`/api/posts/${target.mongoId}/like`, { method: "POST", credentials: "include" });
     } catch (error) {
       console.error("Failed to like:", error);
     }
@@ -310,6 +379,7 @@ export default function HomePage() {
     try {
       await fetch(`/api/posts/${target.mongoId}/comments`, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
       });
@@ -357,7 +427,7 @@ export default function HomePage() {
     return (
       <Card className="p-4">
         <div className="flex items-start gap-3">
-          <Avatar letter={p.user[0]} size={42} />
+          <Avatar letter={(p.user || "?")[0]} size={42} />
           <div className="flex-1">
             <div className="flex items-center justify-between">
               <div>
@@ -578,7 +648,7 @@ export default function HomePage() {
             </div>
             
             <input
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-2 outline-none focus:ring-2 focus:ring-blue-100"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-2 outline-none focus:ring-2 focus:ring-blue-100 text-gray-900"
               placeholder="Title"
               value={createTitle}
               onChange={e => setCreateTitle(e.target.value)}
@@ -586,7 +656,7 @@ export default function HomePage() {
             />
             
             <textarea
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm h-32 outline-none focus:ring-2 focus:ring-blue-100 resize-none"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm h-32 outline-none focus:ring-2 focus:ring-blue-100 resize-none text-gray-900"
               placeholder="What do you want to talk about?"
               value={createBody}
               onChange={e => setCreateBody(e.target.value)}
