@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
-const DEVICE_KEY_STORAGE = 'onelink_device_key';
+const DEVICE_KEY_STORAGE = 'mongodb+srv://onelink:onelink%40123@cluster0.jwd2ykt.mongodb.net/onelink?retryWrites=true&w=majority&appName=onelink';
 
 function getOrCreateDeviceKey(): string {
   try {
