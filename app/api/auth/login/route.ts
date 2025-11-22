@@ -154,28 +154,25 @@ export async function POST(req: Request) {
     });
 
     // session_id cookie – ALWAYS try to set JWT
-    if (signedSessionCookie) {
-      res.cookies.set({
-        name: SESSION_COOKIE_NAME,
-        value: signedSessionCookie,
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: maxAgeSec,
-      });
-    } else {
-      // fallback (rare) – raw sid
-      res.cookies.set({
-        name: SESSION_COOKIE_NAME,
-        value: sessionDoc.sid,
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: maxAgeSec,
-      });
-    }
+   // session_id cookie – MUST be JWT
+if (!signedSessionCookie) {
+  console.error("CRITICAL: signedSessionCookie was null – session signing failed");
+  return NextResponse.json(
+    { error: "Session signing failed" },
+    { status: 500 }
+  );
+}
+
+res.cookies.set({
+  name: SESSION_COOKIE_NAME,
+  value: signedSessionCookie,
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "lax",
+  path: "/",
+  maxAge: maxAgeSec,
+});
+
 
     res.headers.set("Cache-Control", "no-store");
     return res;
