@@ -4,13 +4,24 @@ import bcrypt from "bcryptjs";
 import { SignJWT } from "jose";
 import { dbConnect } from "../../../src/lib/ConnectDB";
 import User from "../../../src/models/users";
-import { createSession } from "../../../src/lib/session";
+import { createSession, signSessionToken } from "../../../src/lib/session";
 import { sanitizeDeviceKey, generateSignature } from "../../../src/lib/device";
 
 const COOKIE_NAME = "auth_token";
 const SESSION_COOKIE_NAME = "session_id";
-const getCookieSecret = () => new TextEncoder().encode(process.env.COOKIE_SECRET || "");
-const getJwtSecret = () => new TextEncoder().encode(process.env.JWT_SECRET || "default_secret");
+
+const getCookieSecret = () => {
+  const secret = process.env.COOKIE_SECRET;
+  if (!secret) {
+    throw new Error("COOKIE_SECRET is not set in environment variables");
+  }
+  return new TextEncoder().encode(secret);
+};
+
+const getJwtSecret = () => {
+  const secret = process.env.JWT_SECRET || "default_secret";
+  return new TextEncoder().encode(secret);
+};
 
 export async function POST(req: Request) {
   try {
@@ -22,30 +33,38 @@ export async function POST(req: Request) {
     const deviceKey = sanitizeDeviceKey(body?.deviceKey);
 
     if (!email || !password) {
-      return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Email and password are required." },
+        { status: 400 }
+      );
     }
 
-    // fetch user with password and signature explicitly
     const user = await User.findOne({ email }).select("+password +signature");
-    if (!user) return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
+    if (!user)
+      return NextResponse.json(
+        { error: "Invalid email or password." },
+        { status: 401 }
+      );
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
+    if (!isMatch)
+      return NextResponse.json(
+        { error: "Invalid email or password." },
+        { status: 401 }
+      );
 
-    // signature logic: register or enforce
+    // signature logic
     if (user.signature) {
-      // require client deviceKey to match
       if (!deviceKey || deviceKey !== user.signature) {
-        // DEBUG LOG - signature mismatch (for dev)
         console.warn("LOGIN DEBUG - signature mismatch:", {
           userId: String(user._id),
           userSignature: user.signature,
           clientDeviceKey: deviceKey,
         });
-        // return NextResponse.json({ error: "Device signature mismatch." }, { status: 401 });
+        // NOTE: currently NOT blocking login, just logging.
+        // Agar block karna ho to yaha 401 return kar sakte ho.
       }
     } else {
-      // register signature: prefer client key, else generate
       user.signature = deviceKey || generateSignature();
       try {
         await user.save();
@@ -54,13 +73,13 @@ export async function POST(req: Request) {
       }
     }
 
-    // build safe user object (no password/signature)
     const userObj = user.toObject ? user.toObject() : { ...user };
     delete (userObj as any).password;
-    // do not include signature in userObj (we may return it separately)
+    delete (userObj as any).signature;
 
-    // create JWT auth token (optional)
     const maxAgeSec = remember ? 60 * 60 * 24 * 30 : 60 * 60 * 24;
+
+    // auth JWT (user info)
     const jwtToken = await new SignJWT({
       id: String(user._id),
       email: user.email,
@@ -72,9 +91,13 @@ export async function POST(req: Request) {
       .setExpirationTime(`${maxAgeSec}s`)
       .sign(getJwtSecret());
 
-    // create server session (store user as reference and deviceKey = user.signature)
+    // server session
     const ua = req.headers.get("user-agent") || "";
-    const ip = (req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "");
+    const ip =
+      req.headers.get("x-forwarded-for") ||
+      req.headers.get("x-real-ip") ||
+      "";
+
     const sessionDoc = await createSession({
       userId: String(user._id),
       deviceKey: user.signature || undefined,
@@ -83,8 +106,6 @@ export async function POST(req: Request) {
       maxAgeSec,
     });
 
-    // DEBUG LOGS: show values to help trace mismatches
-    // (remove these logs in production)
     try {
       console.log("LOGIN DEBUG: user and device info", {
         userId: String(user._id),
@@ -96,31 +117,32 @@ export async function POST(req: Request) {
         ip,
       });
     } catch (logErr) {
-      // ignore logging errors
       console.warn("LOGIN DEBUG: logging failed", logErr);
     }
 
-    // sign session sid into cookie JWT
+    // ✅ yahi se session-id ko bhi JWT banate hain (sid + uid), joh tum chahte ho
     let signedSessionCookie: string | null = null;
     try {
-      signedSessionCookie = await new SignJWT({ sid: sessionDoc.sid, uid: String(user._id) })
-        .setProtectedHeader({ alg: "HS256" })
-        .setIssuedAt()
-        .setExpirationTime(`${maxAgeSec}s`)
-        .sign(getCookieSecret());
+      signedSessionCookie = await signSessionToken({
+        sid: sessionDoc.sid,
+        uid: String(user._id),
+        maxAgeSec,
+      });
     } catch (err) {
       console.error("session cookie sign failed", err);
     }
 
-    // response
-    const res = NextResponse.json({
-      message: "Login successful",
-      user: userObj,
-      redirect: "/",
-      signature: user.signature,
-    }, { status: 200 });
+    const res = NextResponse.json(
+      {
+        message: "Login successful",
+        user: userObj,
+        redirect: "/",
+        signature: user.signature,
+      },
+      { status: 200 }
+    );
 
-    // set HTTP only JWT cookie (optional)
+    // auth_token cookie
     res.cookies.set({
       name: COOKIE_NAME,
       value: jwtToken,
@@ -131,7 +153,7 @@ export async function POST(req: Request) {
       maxAge: maxAgeSec,
     });
 
-    // set signed session cookie (preferred)
+    // session_id cookie – ALWAYS try to set JWT
     if (signedSessionCookie) {
       res.cookies.set({
         name: SESSION_COOKIE_NAME,
@@ -143,7 +165,7 @@ export async function POST(req: Request) {
         maxAge: maxAgeSec,
       });
     } else {
-      // fallback: raw sid (not recommended)
+      // fallback (rare) – raw sid
       res.cookies.set({
         name: SESSION_COOKIE_NAME,
         value: sessionDoc.sid,
