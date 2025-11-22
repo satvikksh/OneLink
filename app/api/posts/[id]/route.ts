@@ -19,13 +19,13 @@ async function getCurrentUserId() {
   return String((session.user as any)?._id || session.user);
 }
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   try {
     const userId = await getCurrentUserId();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     await dbConnect();
-    const id = params.id;
     const body = await req.json();
 
     const post = await Post.findById(id);
@@ -47,13 +47,13 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   }
 }
 
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   try {
     const userId = await getCurrentUserId();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     await dbConnect();
-    const id = params.id;
     const post = await Post.findById(id);
     if (!post) return NextResponse.json({ error: "Post not found" }, { status: 404 });
 
