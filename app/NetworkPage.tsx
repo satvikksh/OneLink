@@ -309,7 +309,7 @@ const NetworkPage: React.FC = () => {
                         </div>
                       </div>
                       <div className="flex space-x-2">
-                        <button className="flex-1 bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600 transition-colors text-sm">Message</button>
+                        <button className="flex-1 bg-blue-400 text-white px-3 py-2 rounded-lg hover:bg-blue-600 transition-colors text-sm">Message</button>
                         <button onClick={() => handleRemoveConnection(connection.id)} className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm" title="Remove connection">
                           <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
