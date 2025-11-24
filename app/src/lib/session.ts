@@ -4,10 +4,20 @@ import { dbConnect } from "./ConnectDB";
 import { SignJWT, jwtVerify } from "jose";
 
 const getCookieSecret = () => {
+  // ✅ yaha se DONO: signSessionToken + getSessionBySignedToken secret lenge
   const secret = process.env.COOKIE_SECRET;
-  if (!secret) {
-    throw new Error("COOKIE_SECRET is not set in environment variables");
+
+  // agar set nahi hai ya chhota hai to warning + safe fallback (sirf emergency ke liye)
+  if (!secret || secret.length < 32) {
+    console.warn(
+      "[session] COOKIE_SECRET missing or too short. " +
+        "Please set a strong 32+ chars secret in env. Using weak fallback."
+    );
+    return new TextEncoder().encode(
+      "dev_fallback_cookie_secret__change_me_please"
+    );
   }
+
   return new TextEncoder().encode(secret);
 };
 
@@ -18,7 +28,12 @@ export function generateSid(): string {
     }
   } catch {}
   // fallback
-  return "s-" + Date.now().toString(36) + "-" + Math.floor(Math.random() * 1e9).toString(36);
+  return (
+    "s-" +
+    Date.now().toString(36) +
+    "-" +
+    Math.floor(Math.random() * 1e9).toString(36)
+  );
 }
 
 export async function createSession({
@@ -67,7 +82,9 @@ export async function getSessionBySid(sid?: string) {
   return s;
 }
 
-// helper: sign sid + uid into a JWT (this is your "session id" style)
+/**
+ * ✅ sid + uid ko JWT me sign karta hai – ye hi tumhara "session cookie" hai
+ */
 export async function signSessionToken(params: {
   sid: string;
   uid: string;
@@ -82,20 +99,34 @@ export async function signSessionToken(params: {
     .setExpirationTime(`${maxAgeSec}s`)
     .sign(secret);
 
-  return jwt; // looks like: eyJhbGciOiJIUzI1NiJ9.eyJzaWQiOiIuLi4iLCJ1aWQiOiIuLi4iLCJpYXQiOj..., आदि
+  return jwt;
 }
 
-// verify signed cookie token and return the session doc
+/**
+ * ✅ pehle JWT verify karta hai; agar fail ho jaye to OLD raw sid pe fallback
+ * (fallback sirf isliye, kyunki pehle production me raw UUID cookie aa rahi thi)
+ */
 export async function getSessionBySignedToken(signedToken?: string) {
   if (!signedToken) return null;
+
+  const secret = getCookieSecret();
+
+  // 1) try as JWT (recommended path)
   try {
-    const secret = getCookieSecret();
     const { payload } = await jwtVerify(signedToken, secret);
     const sid = (payload as any).sid as string | undefined;
     if (!sid) return null;
     return await getSessionBySid(sid);
+  } catch (err) {
+    console.warn(
+      "[session] jwtVerify failed for session_id – trying raw sid fallback"
+    );
+  }
+
+  // 2) fallback: treat entire cookie as raw sid (for old sessions)
+  try {
+    return await getSessionBySid(signedToken);
   } catch {
-    // invalid token or expired
     return null;
   }
 }

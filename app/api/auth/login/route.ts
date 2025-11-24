@@ -10,14 +10,6 @@ import { sanitizeDeviceKey, generateSignature } from "../../../src/lib/device";
 const COOKIE_NAME = "auth_token";
 const SESSION_COOKIE_NAME = "session_id";
 
-const getCookieSecret = () => {
-  const secret = process.env.COOKIE_SECRET;
-  if (!secret) {
-    throw new Error("COOKIE_SECRET is not set in environment variables");
-  }
-  return new TextEncoder().encode(secret);
-};
-
 const getJwtSecret = () => {
   const secret = process.env.JWT_SECRET || "default_secret";
   return new TextEncoder().encode(secret);
@@ -40,20 +32,22 @@ export async function POST(req: Request) {
     }
 
     const user = await User.findOne({ email }).select("+password +signature");
-    if (!user)
+    if (!user) {
       return NextResponse.json(
         { error: "Invalid email or password." },
         { status: 401 }
       );
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch)
+    if (!isMatch) {
       return NextResponse.json(
         { error: "Invalid email or password." },
         { status: 401 }
       );
+    }
 
-    // signature logic
+    // --- signature (deviceKey) logic ---
     if (user.signature) {
       if (!deviceKey || deviceKey !== user.signature) {
         console.warn("LOGIN DEBUG - signature mismatch:", {
@@ -61,8 +55,8 @@ export async function POST(req: Request) {
           userSignature: user.signature,
           clientDeviceKey: deviceKey,
         });
-        // NOTE: currently NOT blocking login, just logging.
-        // Agar block karna ho to yaha 401 return kar sakte ho.
+        // agar yahi block karna ho to yaha 401 bhej sakte ho
+        // return NextResponse.json({ error: "Device mismatch" }, { status: 401 });
       }
     } else {
       user.signature = deviceKey || generateSignature();
@@ -79,7 +73,7 @@ export async function POST(req: Request) {
 
     const maxAgeSec = remember ? 60 * 60 * 24 * 30 : 60 * 60 * 24;
 
-    // auth JWT (user info)
+    // --- auth JWT (user info) ---
     const jwtToken = await new SignJWT({
       id: String(user._id),
       email: user.email,
@@ -91,7 +85,7 @@ export async function POST(req: Request) {
       .setExpirationTime(`${maxAgeSec}s`)
       .sign(getJwtSecret());
 
-    // server session
+    // --- server session doc ---
     const ua = req.headers.get("user-agent") || "";
     const ip =
       req.headers.get("x-forwarded-for") ||
@@ -120,7 +114,7 @@ export async function POST(req: Request) {
       console.warn("LOGIN DEBUG: logging failed", logErr);
     }
 
-    // ✅ yahi se session-id ko bhi JWT banate hain (sid + uid), joh tum chahte ho
+    // --- sign session_id as JWT (sid + uid) ---
     let signedSessionCookie: string | null = null;
     try {
       signedSessionCookie = await signSessionToken({
@@ -130,6 +124,17 @@ export async function POST(req: Request) {
       });
     } catch (err) {
       console.error("session cookie sign failed", err);
+    }
+
+    // yaha fallback nahi – agar sign hi nahi hua to error dikhao
+    if (!signedSessionCookie) {
+      console.error(
+        "CRITICAL: signedSessionCookie was null – session signing failed"
+      );
+      return NextResponse.json(
+        { error: "Session signing failed" },
+        { status: 500 }
+      );
     }
 
     const res = NextResponse.json(
@@ -153,26 +158,16 @@ export async function POST(req: Request) {
       maxAge: maxAgeSec,
     });
 
-    // session_id cookie – ALWAYS try to set JWT
-   // session_id cookie – MUST be JWT
-if (!signedSessionCookie) {
-  console.error("CRITICAL: signedSessionCookie was null – session signing failed");
-  return NextResponse.json(
-    { error: "Session signing failed" },
-    { status: 500 }
-  );
-}
-
-res.cookies.set({
-  name: SESSION_COOKIE_NAME,
-  value: signedSessionCookie,
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "lax",
-  path: "/",
-  maxAge: maxAgeSec,
-});
-
+    // session_id cookie – ALWAYS JWT now
+    res.cookies.set({
+      name: SESSION_COOKIE_NAME,
+      value: signedSessionCookie,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: maxAgeSec,
+    });
 
     res.headers.set("Cache-Control", "no-store");
     return res;
