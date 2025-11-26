@@ -1,185 +1,67 @@
 // app/api/auth/me/route.ts
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { dbConnect } from "../../../src/lib/ConnectDB";
 import User from "../../../src/models/users";
-import {
-  getSessionBySignedToken,
-  destroySession,
-} from "../../../src/lib/session";
+import { getSessionBySignedToken, destroySession } from "../../../src/lib/session";
+
+const SESSION_COOKIE = "session_id";
+const AUTH_COOKIE = "auth_token";
 
 export async function GET(req: Request) {
   try {
-    const jar = cookies();
+    await dbConnect();
 
-    // signed session cookie
-    const signedSession = (await jar).get("session_id")?.value;
+    // cookies() must be awaited (server-side)
+    const jar = await cookies();
 
-    // deviceKey from header or cookie
-    let deviceKeyHeader: string | null = null;
-    try {
-      deviceKeyHeader = req.headers.get("x-device-key") || null;
-    } catch {}
+    // read signed session cookie (JWT or raw sid)
+    const signedSession = jar.get(SESSION_COOKIE)?.value || null;
 
-    if (!deviceKeyHeader) {
-      try {
-        const ck = (await jar).get("device_key")?.value;
-        if (ck) deviceKeyHeader = ck;
-      } catch {}
+    // read device key: prefer header, fallback to optional cookie 'device_key'
+    const deviceKeyHeader = req.headers.get("x-device-key") || null;
+    const deviceKeyCookie = jar.get("device_key")?.value || null;
+    const deviceKey = deviceKeyHeader || deviceKeyCookie || null;
+
+    // If you require header strictly, uncomment this block.
+    // if (!deviceKeyHeader) {
+    //   return NextResponse.json({ user: null, error: "missing x-device-key header" }, { status: 401 });
+    // }
+
+    if (!signedSession) {
+      // no session cookie => not authenticated
+      return NextResponse.json({ user: null, error: "NO_SESSION" }, { status: 401 });
     }
 
-    try {
-      console.log(
-        "ME: received x-device-key header:",
-        deviceKeyHeader ? "[present]" : "[missing]"
-      );
-    } catch {}
-
-    const session = await getSessionBySignedToken(signedSession);
+    // verify session (this will also do JWT verify + raw sid fallback)
+    const session = await getSessionBySignedToken(signedSession, deviceKey);
 
     if (!session) {
-      return NextResponse.json({ user: null, error: "UNAUTH" }, { status: 401 });
-    }
-
-    const sessionUser = session.user as any;
-    if (!sessionUser || !sessionUser._id) {
-      try {
-        await destroySession(session.sid);
-      } catch {}
-
-      const res = NextResponse.json(
-        { user: null, error: "INVALID_SESSION" },
-        { status: 401 }
-      );
-      res.cookies.set("session_id", "", {
-        path: "/",
-        httpOnly: true,
-        maxAge: 0,
-      });
-      res.cookies.set("auth_token", "", {
-        path: "/",
-        httpOnly: true,
-        maxAge: 0,
-      });
+      // invalid or device mismatch; ensure cookies cleared
+      const res = NextResponse.json({ user: null, error: "INVALID_SESSION" }, { status: 401 });
+      res.cookies.set(SESSION_COOKIE, "", { path: "/", httpOnly: true, maxAge: 0 });
+      res.cookies.set(AUTH_COOKIE, "", { path: "/", httpOnly: true, maxAge: 0 });
       return res;
     }
 
-    // deviceKey check
-    if (session.deviceKey) {
-      if (!deviceKeyHeader || deviceKeyHeader !== String(session.deviceKey)) {
-        try {
-          console.warn("ME: deviceKey mismatch — destroying session", {
-            sid: session.sid,
-          });
-          await destroySession(session.sid);
-        } catch (e) {
-          console.error("ME: destroySession error", e);
-        }
+    // session found — determine user id (session.user may be populated or just id)
+    const userId = (session.user && (session.user as any)._id) ? String((session.user as any)._id) : String(session.user);
 
-        const res = NextResponse.json(
-          { user: null, error: "SIGNATURE_MISMATCH" },
-          { status: 401 }
-        );
-        res.cookies.set("session_id", "", {
-          path: "/",
-          httpOnly: true,
-          maxAge: 0,
-        });
-        res.cookies.set("auth_token", "", {
-          path: "/",
-          httpOnly: true,
-          maxAge: 0,
-        });
-        return res;
-      }
-    } else {
-      // unsafe session without deviceKey
-      try {
-        console.warn("ME: session exists without deviceKey — destroying", {
-          sid: session.sid,
-        });
-        await destroySession(session.sid);
-      } catch (e) {}
-
-      const res = NextResponse.json(
-        { user: null, error: "UNSAFE_SESSION" },
-        { status: 401 }
-      );
-      res.cookies.set("session_id", "", {
-        path: "/",
-        httpOnly: true,
-        maxAge: 0,
-      });
-      res.cookies.set("auth_token", "", {
-        path: "/",
-        httpOnly: true,
-        maxAge: 0,
-      });
-      return res;
-    }
-
-    await dbConnect();
-    const user = await User.findById(String(sessionUser._id))
-      .select("+signature")
-      .lean();
-
+    // load user (select sensitive fields off)
+    const user = await User.findById(userId).select("-password -signature").lean();
     if (!user) {
-      try {
-        await destroySession(session.sid);
-      } catch {}
-      const res = NextResponse.json(
-        { user: null, error: "USER_NOT_FOUND" },
-        { status: 401 }
-      );
-      res.cookies.set("session_id", "", {
-        path: "/",
-        httpOnly: true,
-        maxAge: 0,
-      });
-      res.cookies.set("auth_token", "", {
-        path: "/",
-        httpOnly: true,
-        maxAge: 0,
-      });
+      // user not found — destroy and clear cookies
+      try { await destroySession(session.sid); } catch {}
+      const res = NextResponse.json({ user: null, error: "USER_NOT_FOUND" }, { status: 401 });
+      res.cookies.set(SESSION_COOKIE, "", { path: "/", httpOnly: true, maxAge: 0 });
+      res.cookies.set(AUTH_COOKIE, "", { path: "/", httpOnly: true, maxAge: 0 });
       return res;
     }
 
-    if (String(sessionUser._id) !== String(user._id)) {
-      try {
-        await destroySession(session.sid);
-      } catch {}
-      const res = NextResponse.json(
-        { user: null, error: "SESSION_USER_MISMATCH" },
-        { status: 401 }
-      );
-      res.cookies.set("session_id", "", {
-        path: "/",
-        httpOnly: true,
-        maxAge: 0,
-      });
-      res.cookies.set("auth_token", "", {
-        path: "/",
-        httpOnly: true,
-        maxAge: 0,
-      });
-      return res;
-    }
-
-    if ((user as any).password) delete (user as any).password;
-    if ((user as any).signature) delete (user as any).signature;
-
-    try {
-      console.log("ME: auth success");
-    } catch {}
-
+    // OK
     return NextResponse.json({ user }, { status: 200 });
   } catch (err) {
     console.error("/api/auth/me error:", err);
-    return NextResponse.json(
-      { user: null, error: "SERVER_ERROR" },
-      { status: 500 }
-    );
+    return NextResponse.json({ user: null, error: "SERVER_ERROR" }, { status: 500 });
   }
 }

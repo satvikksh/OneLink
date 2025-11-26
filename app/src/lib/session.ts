@@ -4,10 +4,7 @@ import { dbConnect } from "./ConnectDB";
 import { SignJWT, jwtVerify } from "jose";
 
 const getCookieSecret = () => {
-  // ✅ yaha se DONO: signSessionToken + getSessionBySignedToken secret lenge
   const secret = process.env.COOKIE_SECRET;
-
-  // agar set nahi hai ya chhota hai to warning + safe fallback (sirf emergency ke liye)
   if (!secret || secret.length < 32) {
     console.warn(
       "[session] COOKIE_SECRET missing or too short. " +
@@ -17,7 +14,6 @@ const getCookieSecret = () => {
       "dev_fallback_cookie_secret__change_me_please"
     );
   }
-
   return new TextEncoder().encode(secret);
 };
 
@@ -27,7 +23,6 @@ export function generateSid(): string {
       return (crypto as any).randomUUID();
     }
   } catch {}
-  // fallback
   return (
     "s-" +
     Date.now().toString(36) +
@@ -83,7 +78,7 @@ export async function getSessionBySid(sid?: string) {
 }
 
 /**
- * ✅ sid + uid ko JWT me sign karta hai – ye hi tumhara "session cookie" hai
+ * Sign sid + uid into a JWT (session cookie).
  */
 export async function signSessionToken(params: {
   sid: string;
@@ -103,29 +98,59 @@ export async function signSessionToken(params: {
 }
 
 /**
- * ✅ pehle JWT verify karta hai; agar fail ho jaye to OLD raw sid pe fallback
- * (fallback sirf isliye, kyunki pehle production me raw UUID cookie aa rahi thi)
+ * Verify signed token (JWT). If deviceKey is provided, ensure the session.deviceKey matches.
+ *
+ * NOTE: we still keep the "raw sid" fallback for older cookies, but if a session exists with
+ * a deviceKey and it does not match the provided deviceKey we WILL delete that session and return null.
+ *
+ * Usage: getSessionBySignedToken(signedToken, clientDeviceKey)
  */
-export async function getSessionBySignedToken(signedToken?: string) {
+export async function getSessionBySignedToken(
+  signedToken?: string,
+  clientDeviceKey?: string | null
+) {
   if (!signedToken) return null;
-
   const secret = getCookieSecret();
 
-  // 1) try as JWT (recommended path)
+  // 1) try JWT
   try {
     const { payload } = await jwtVerify(signedToken, secret);
     const sid = (payload as any).sid as string | undefined;
     if (!sid) return null;
-    return await getSessionBySid(sid);
+
+    const sess = await getSessionBySid(sid);
+    if (!sess) return null;
+
+    // If session has deviceKey, enforce match (if client provided one)
+    if (sess.deviceKey) {
+      if (!clientDeviceKey || String(sess.deviceKey) !== String(clientDeviceKey)) {
+        // Device mismatch — destroy session (prevent hijack)
+        try {
+          await Session.deleteOne({ _id: sess._id });
+        } catch {}
+        return null;
+      }
+    }
+    return sess;
   } catch (err) {
-    console.warn(
-      "[session] jwtVerify failed for session_id – trying raw sid fallback"
-    );
+    // JWT verify failed → fall through to raw sid fallback
   }
 
-  // 2) fallback: treat entire cookie as raw sid (for old sessions)
+  // 2) fallback: raw sid
   try {
-    return await getSessionBySid(signedToken);
+    const sess = await getSessionBySid(signedToken);
+    if (!sess) return null;
+
+    // Enforce deviceKey if present in session
+    if (sess.deviceKey) {
+      if (!clientDeviceKey || String(sess.deviceKey) !== String(clientDeviceKey)) {
+        try {
+          await Session.deleteOne({ _id: sess._id });
+        } catch {}
+        return null;
+      }
+    }
+    return sess;
   } catch {
     return null;
   }

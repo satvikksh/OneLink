@@ -19,12 +19,12 @@ type UIPost = {
   createdAt?: string;
 };
 
-type SuggestUser = { 
-  id: number; 
-  name: string; 
-  title: string; 
-  avatar?: string; 
-  mutual?: number 
+type SuggestUser = {
+  id: number;
+  name: string;
+  title: string;
+  avatar?: string;
+  mutual?: number;
 };
 
 type Connection = SuggestUser & { online?: boolean };
@@ -47,32 +47,37 @@ const SUGGESTED: SuggestUser[] = [
 
 /* small helpers */
 const roleToTitle = (role?: string) =>
-  role === "recruiter" ? "Recruiter"
-  : role === "creator" ? "Creator"
-  : role === "student" ? "Student"
-  : "Professional";
+  role === "recruiter"
+    ? "Recruiter"
+    : role === "creator"
+    ? "Creator"
+    : role === "student"
+    ? "Student"
+    : "Professional";
 
-
-
-// safeJsonFetch (improved)
+// safeJsonFetch (improved) — includes device key from localStorage automatically
 export async function safeJsonFetch(url: string, opts: RequestInit = {}) {
-  // add device key header if present in localStorage
   const headers = new Headers(opts.headers || {});
   try {
     if (typeof window !== "undefined") {
-      const dk = localStorage.getItem("onelink_device_key");
+      const dk = window.localStorage.getItem("onelink_device_key");
       if (dk) headers.set("x-device-key", dk);
     }
   } catch (e) {
     // ignore localStorage errors
   }
-  if (!headers.get("Content-Type")) headers.set("Content-Type", "application/json");
+
+  // preserve any Content-Type set by caller; default to JSON for convenience
+  if (!headers.get("Content-Type") && (opts.method ?? "GET").toUpperCase() !== "GET") {
+    headers.set("Content-Type", "application/json");
+  }
+
   const res = await fetch(url, { credentials: "include", ...opts, headers });
 
   const ct = res.headers.get("content-type") || "";
 
-  // handle non-ok responses: try parse JSON error body
   if (!res.ok) {
+    // try to parse JSON error body if present
     if (ct.includes("application/json")) {
       try {
         const err = await res.json();
@@ -86,7 +91,6 @@ export async function safeJsonFetch(url: string, opts: RequestInit = {}) {
 
   if (res.status === 204) return null;
   if (!ct.includes("application/json")) return null;
-
   try {
     return await res.json();
   } catch {
@@ -114,14 +118,14 @@ function Card({ children, className = "" }: { children: React.ReactNode; classNa
   );
 }
 
-function Button({ 
-  children, 
-  onClick, 
-  variant = "primary", 
+function Button({
+  children,
+  onClick,
+  variant = "primary",
   disabled = false,
-  className = ""
-}: { 
-  children: React.ReactNode; 
+  className = "",
+}: {
+  children: React.ReactNode;
   onClick?: () => void;
   variant?: "primary" | "ghost" | "soft";
   disabled?: boolean;
@@ -133,13 +137,9 @@ function Button({
     ghost: "bg-transparent text-gray-700 hover:bg-gray-100",
     soft: "bg-gray-100 text-gray-800 hover:bg-gray-200",
   }[variant];
-  
+
   return (
-    <button 
-      className={`${base} ${styles} ${className}`} 
-      onClick={onClick}
-      disabled={disabled}
-    >
+    <button className={`${base} ${styles} ${className}`} onClick={onClick} disabled={disabled}>
       {children}
     </button>
   );
@@ -159,7 +159,7 @@ export default function HomePage() {
   const [suggestions, setSuggestions] = useState<SuggestUser[]>(SUGGESTED);
   const [posts, setPosts] = useState<UIPost[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   // Modals
   const [createOpen, setCreateOpen] = useState(false);
   const [createTitle, setCreateTitle] = useState("");
@@ -173,9 +173,9 @@ export default function HomePage() {
     let active = true;
     (async () => {
       try {
-        const res = await safeJsonFetch("/api/auth/me", { cache: "no-store", method: "GET" });
-        // safeJsonFetch throws on non-ok; if it returned null or object, we inspect
-        const data = res || {};
+        // safeJsonFetch will attach x-device-key from localStorage automatically (if present)
+        const data = await safeJsonFetch("/api/auth/me", { cache: "no-store", method: "GET" });
+        // data is parsed JSON or null
         if (!active) return;
 
         if (!data?.user) {
@@ -187,8 +187,7 @@ export default function HomePage() {
         setCurrentUser(data.user);
 
         const name: string = data.user.name || "User";
-        const title: string =
-          data.user.title || data.user.headline || roleToTitle(data.user.role);
+        const title: string = data.user.title || data.user.headline || roleToTitle(data.user.role);
         const avatar = "*";
 
         setProfile(prev => ({
@@ -199,14 +198,16 @@ export default function HomePage() {
           postImpressions: prev?.postImpressions ?? 0,
         }));
       } catch (err) {
-        // not authenticated or error
+        // not authenticated or error -> redirect to login
         const next = typeof window !== "undefined" ? window.location.pathname + window.location.search : "/";
         router.replace(`/login?next=${encodeURIComponent(next)}`);
       } finally {
         if (active) setAuthLoading(false);
       }
     })();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [router]);
 
   /* ============= Fetch posts (fixed mapping + robust) ============= */
@@ -214,30 +215,25 @@ export default function HomePage() {
     let mounted = true;
     (async () => {
       try {
-        const data = await safeJsonFetch('/api/posts', { cache: 'no-store', method: 'GET' });
+        const data = await safeJsonFetch("/api/posts", { cache: "no-store", method: "GET" });
         if (!mounted) return;
 
-        // Normalize possible shapes:
-        // - API may return array directly -> data = [ ... ]
-        // - API may return { posts: [...] } -> data.posts
-        // - fallback -> []
         const postsFromApi: any[] = Array.isArray(data)
           ? data
           : Array.isArray(data?.posts)
-            ? data.posts
-            : [];
+          ? data.posts
+          : [];
 
-        // Map safely
         const mapped: UIPost[] = postsFromApi.map((d: any, i: number) => ({
           mongoId: d._id ?? d.id ?? `temp-${i}`,
           id: i + 1,
-          user: d.user ?? d.author?.name ?? (d.author ?? "Unknown"),
-          avatar: d.avatar ?? (d.author?.avatar ?? ""),
+          user: d.user ?? d.author?.name ?? d.author ?? "Unknown",
+          avatar: d.avatar ?? d.author?.avatar ?? "",
           title: d.title ?? "",
           content: d.content ?? d.body ?? "",
           timestamp: new Date(d.createdAt ?? d.created_at ?? Date.now()).toLocaleString(),
           likes: typeof d.likes === "number" ? d.likes : 0,
-          comments: Array.isArray(d.comments) ? d.comments.length : (typeof d.comments === "number" ? d.comments : 0),
+          comments: Array.isArray(d.comments) ? d.comments.length : typeof d.comments === "number" ? d.comments : 0,
           shares: typeof d.shares === "number" ? d.shares : 0,
           isLiked: false,
           createdAt: d.createdAt ?? d.created_at,
@@ -250,7 +246,9 @@ export default function HomePage() {
         setLoading(false);
       }
     })();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   /* ============= Stats (unchanged) ============= */
@@ -263,7 +261,7 @@ export default function HomePage() {
     };
   }, [posts, profile, connections.length]);
 
-  /* ============= Actions (unchanged) ============= */
+  /* ============= Actions (improved to use safeJsonFetch where appropriate) ============= */
   const openCreate = useCallback(() => {
     if (!profile) {
       setEditName("");
@@ -278,7 +276,7 @@ export default function HomePage() {
 
   const submitCreate = useCallback(async () => {
     if (!profile || !createTitle.trim() || !createBody.trim()) return;
-    
+
     const tempId = Date.now();
     const optimistic: UIPost = {
       mongoId: `temp-${tempId}`,
@@ -293,15 +291,13 @@ export default function HomePage() {
       shares: 0,
       isLiked: false,
     };
-    
+
     setPosts(prev => [optimistic, ...prev]);
     setCreateOpen(false);
 
     try {
-      const res = await fetch("/api/posts", {
+      const createdRaw = await safeJsonFetch("/api/posts", {
         method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user: profile.name,
           title: optimistic.title,
@@ -309,39 +305,36 @@ export default function HomePage() {
           avatar: profile.avatar,
         }),
       });
-      
-      if (!res.ok) throw new Error("create failed");
-      
-      const createdRaw = await res.json().catch(() => null);
-      // API might return { post: {...} } or the post object directly
-      const created = createdRaw?.post ? createdRaw.post : (createdRaw ?? null);
 
-      // if server returns nothing meaningful, keep optimistic and stop
+      const created = createdRaw?.post ? createdRaw.post : createdRaw ?? null;
+
       if (!created) {
-        // best-effort: keep optimistic and inform user
         alert("Post published (server did not return full response).");
         return;
       }
 
       setPosts(prev => {
         const others = prev.filter(p => p.mongoId !== optimistic.mongoId);
-        return [{
-          mongoId: created._id ?? created.id ?? `created-${Date.now()}`,
-          id: optimistic.id,
-          user: created.user ?? created.author ?? profile.name,
-          avatar: created.avatar ?? profile.avatar,
-          title: created.title ?? optimistic.title,
-          content: created.content ?? created.body ?? optimistic.content,
-          timestamp: new Date(created.createdAt ?? created.created_at ?? Date.now()).toLocaleString(),
-          likes: typeof created.likes === "number" ? created.likes : 0,
-          comments: Array.isArray(created.comments) ? created.comments.length : (typeof created.comments === "number" ? created.comments : 0),
-          shares: typeof created.shares === "number" ? created.shares : 0,
-          isLiked: false,
-          createdAt: created.createdAt ?? created.created_at,
-        }, ...others];
+        return [
+          {
+            mongoId: created._id ?? created.id ?? `created-${Date.now()}`,
+            id: optimistic.id,
+            user: created.user ?? created.author ?? profile.name,
+            avatar: created.avatar ?? profile.avatar,
+            title: created.title ?? optimistic.title,
+            content: created.content ?? created.body ?? optimistic.content,
+            timestamp: new Date(created.createdAt ?? created.created_at ?? Date.now()).toLocaleString(),
+            likes: typeof created.likes === "number" ? created.likes : 0,
+            comments: Array.isArray(created.comments) ? created.comments.length : typeof created.comments === "number" ? created.comments : 0,
+            shares: typeof created.shares === "number" ? created.shares : 0,
+            isLiked: false,
+            createdAt: created.createdAt ?? created.created_at,
+          },
+          ...others,
+        ];
       });
-      
-      setProfile(p => p ? { ...p, postImpressions: p.postImpressions + 1 } : p);
+
+      setProfile(p => (p ? { ...p, postImpressions: p.postImpressions + 1 } : p));
     } catch (err) {
       console.error("create post failed:", err);
       setPosts(prev => prev.filter(p => p.mongoId !== optimistic.mongoId));
@@ -349,59 +342,60 @@ export default function HomePage() {
     }
   }, [profile, createTitle, createBody, posts.length]);
 
-  const onLike = useCallback(async (postId: number) => {
-    const target = posts.find(p => p.id === postId);
-    if (!target) return;
-    
-    setPosts(prev => prev.map(p => 
-      p.id === postId 
-        ? { ...p, likes: p.isLiked ? p.likes - 1 : p.likes + 1, isLiked: !p.isLiked } 
-        : p
-    ));
-    
-    try {
-      await fetch(`/api/posts/${target.mongoId}/like`, { method: "POST", credentials: "include" });
-    } catch (error) {
-      console.error("Failed to like:", error);
-    }
-  }, [posts]);
+  const onLike = useCallback(
+    async (postId: number) => {
+      const target = posts.find(p => p.id === postId);
+      if (!target) return;
 
-  const onComment = useCallback(async (postId: number, text: string) => {
-    if (!text.trim()) return;
-    
-    const target = posts.find(p => p.id === postId);
-    if (!target) return;
-    
-    setPosts(prev => prev.map(p => 
-      p.id === postId ? { ...p, comments: p.comments + 1 } : p
-    ));
-    
-    try {
-      await fetch(`/api/posts/${target.mongoId}/comments`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-    } catch (error) {
-      console.error("Failed to comment:", error);
-    }
-  }, [posts]);
+      setPosts(prev =>
+        prev.map(p => (p.id === postId ? { ...p, likes: p.isLiked ? p.likes - 1 : p.likes + 1, isLiked: !p.isLiked } : p))
+      );
+
+      try {
+        await safeJsonFetch(`/api/posts/${target.mongoId}/like`, { method: "POST" });
+      } catch (error) {
+        console.error("Failed to like:", error);
+      }
+    },
+    [posts]
+  );
+
+  const onComment = useCallback(
+    async (postId: number, text: string) => {
+      if (!text.trim()) return;
+
+      const target = posts.find(p => p.id === postId);
+      if (!target) return;
+
+      setPosts(prev => prev.map(p => (p.id === postId ? { ...p, comments: p.comments + 1 } : p)));
+
+      try {
+        await safeJsonFetch(`/api/posts/${target.mongoId}/comments`, {
+          method: "POST",
+          body: JSON.stringify({ text }),
+        });
+      } catch (error) {
+        console.error("Failed to comment:", error);
+      }
+    },
+    [posts]
+  );
 
   const onShare = useCallback((postId: number) => {
-    setPosts(prev => prev.map(p => 
-      p.id === postId ? { ...p, shares: p.shares + 1 } : p
-    ));
+    setPosts(prev => prev.map(p => (p.id === postId ? { ...p, shares: p.shares + 1 } : p)));
   }, []);
 
-  const connectUser = useCallback((u: SuggestUser) => {
-    if (!profile) {
-      setEditOpen(true);
-      return;
-    }
-    setSuggestions(prev => prev.filter(x => x.id !== u.id));
-    setConnections(prev => [...prev, { ...u, online: true }]);
-  }, [profile]);
+  const connectUser = useCallback(
+    (u: SuggestUser) => {
+      if (!profile) {
+        setEditOpen(true);
+        return;
+      }
+      setSuggestions(prev => prev.filter(x => x.id !== u.id));
+      setConnections(prev => [...prev, { ...u, online: true }]);
+    },
+    [profile]
+  );
 
   const removeConn = useCallback((id: number) => {
     setConnections(prev => prev.filter(c => c.id !== id));
@@ -409,7 +403,7 @@ export default function HomePage() {
 
   const saveProfile = useCallback(() => {
     if (!editName.trim() || !editTitle.trim()) return;
-    
+
     setProfile({
       name: editName.trim(),
       title: editTitle.trim(),
@@ -423,7 +417,7 @@ export default function HomePage() {
   /* ============= Feed Item (unchanged) ============= */
   const FeedItem = React.memo(({ p }: { p: UIPost }) => {
     const [commentVal, setCommentVal] = useState("");
-    
+
     return (
       <Card className="p-4">
         <div className="flex items-start gap-3">
@@ -435,15 +429,12 @@ export default function HomePage() {
                 <div className="text-xs text-gray-500">{p.timestamp}</div>
               </div>
             </div>
-            
+
             <h3 className="mt-2 font-semibold text-gray-900">{p.title}</h3>
             <p className="text-gray-700 mt-1 whitespace-pre-wrap">{p.content}</p>
 
             <div className="flex items-center gap-4 mt-3 text-sm text-gray-600">
-              <button 
-                onClick={() => onLike(p.id)} 
-                className={`hover:text-blue-600 transition ${p.isLiked ? 'text-blue-600 font-medium' : ''}`}
-              >
+              <button onClick={() => onLike(p.id)} className={`hover:text-blue-600 transition ${p.isLiked ? "text-blue-600 font-medium" : ""}`}>
                 👍 {p.likes}
               </button>
               <span>💬 {p.comments}</span>
@@ -456,12 +447,12 @@ export default function HomePage() {
               <input
                 value={commentVal}
                 onChange={e => setCommentVal(e.target.value)}
-                onKeyPress={e => e.key === 'Enter' && commentVal.trim() && (onComment(p.id, commentVal), setCommentVal(""))}
+                onKeyPress={e => e.key === "Enter" && commentVal.trim() && (onComment(p.id, commentVal), setCommentVal(""))}
                 placeholder="Write a comment…"
                 className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
               />
-              <Button 
-                variant="soft" 
+              <Button
+                variant="soft"
                 onClick={() => {
                   if (commentVal.trim()) {
                     onComment(p.id, commentVal);
@@ -515,7 +506,6 @@ export default function HomePage() {
     <div className="min-h-screen bg-gray-50">
       {/* Main content without navbar */}
       <div className="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)_300px] gap-6">
-        
         {/* Left Sidebar */}
         <div className="space-y-6">
           <Card className="p-4">
@@ -526,7 +516,7 @@ export default function HomePage() {
                 <div className="text-sm text-gray-500">{profile?.title ?? "Create your profile"}</div>
               </div>
             </div>
-            
+
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="bg-gray-50 rounded p-2">
                 <div className="text-xs text-gray-500">Views</div>
@@ -541,15 +531,19 @@ export default function HomePage() {
                 <div className="font-semibold">{connections.length}</div>
               </div>
             </div>
-            
+
             <div className="mt-3 flex items-center justify-between text-xs text-gray-600">
-              <span>Posts: <b>{stats.posts}</b></span>
-              <span>Likes: <b>{stats.likes}</b></span>
+              <span>
+                Posts: <b>{stats.posts}</b>
+              </span>
+              <span>
+                Likes: <b>{stats.likes}</b>
+              </span>
             </div>
-            
+
             <div className="mt-4 flex gap-2">
-              <Button 
-                variant="primary" 
+              <Button
+                variant="primary"
                 onClick={() => {
                   setEditName(profile?.name ?? "");
                   setEditTitle(profile?.title ?? "");
@@ -558,7 +552,9 @@ export default function HomePage() {
               >
                 {profile ? "Edit Profile" : "Create Profile"}
               </Button>
-              <Button variant="soft" onClick={openCreate}>New Post</Button>
+              <Button variant="soft" onClick={openCreate}>
+                New Post
+              </Button>
             </div>
           </Card>
 
@@ -580,7 +576,9 @@ export default function HomePage() {
                         <div className="text-xs text-gray-500 truncate max-w-[150px]">{c.title}</div>
                       </div>
                     </div>
-                    <Button variant="ghost" onClick={() => removeConn(c.id)}>Remove</Button>
+                    <Button variant="ghost" onClick={() => removeConn(c.id)}>
+                      Remove
+                    </Button>
                   </div>
                 ))
               )}
@@ -593,20 +591,17 @@ export default function HomePage() {
           <Card className="p-4 mb-4">
             <div className="flex items-center gap-3">
               <Avatar letter={(profile?.name ?? "?")[0]} size={44} />
-              <button
-                onClick={openCreate}
-                className="flex-1 text-left px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-full text-gray-700 transition"
-              >
+              <button onClick={openCreate} className="flex-1 text-left px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-full text-gray-700 transition">
                 {profile ? "Start a post…" : "Create your profile to post"}
               </button>
-              <Button variant="soft" onClick={openCreate}>Write</Button>
+              <Button variant="soft" onClick={openCreate}>
+                Write
+              </Button>
             </div>
           </Card>
 
           {posts.length > 0 ? (
-            <div className="space-y-4">
-              {posts.map(p => <FeedItem key={`${p.mongoId}-${p.id}`} p={p} />)}
-            </div>
+            <div className="space-y-4">{posts.map(p => <FeedItem key={`${p.mongoId}-${p.id}`} p={p} />)}</div>
           ) : (
             <Card className="p-8 text-center text-gray-600">No posts yet</Card>
           )}
@@ -627,7 +622,9 @@ export default function HomePage() {
                       {u.mutual ? <div className="text-xs text-blue-600">{u.mutual} mutual</div> : null}
                     </div>
                   </div>
-                  <Button variant="soft" onClick={() => connectUser(u)}>Connect</Button>
+                  <Button variant="soft" onClick={() => connectUser(u)}>
+                    Connect
+                  </Button>
                 </div>
               ))}
             </div>
@@ -646,7 +643,7 @@ export default function HomePage() {
                 <div className="text-xs text-gray-500">{profile?.title ?? ""}</div>
               </div>
             </div>
-            
+
             <input
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-2 outline-none focus:ring-2 focus:ring-blue-100 text-gray-900"
               placeholder="Title"
@@ -654,20 +651,19 @@ export default function HomePage() {
               onChange={e => setCreateTitle(e.target.value)}
               maxLength={120}
             />
-            
+
             <textarea
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm h-32 outline-none focus:ring-2 focus:ring-blue-100 resize-none text-gray-900"
               placeholder="What do you want to talk about?"
               value={createBody}
               onChange={e => setCreateBody(e.target.value)}
             />
-            
+
             <div className="mt-3 flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => setCreateOpen(false)}>Cancel</Button>
-              <Button 
-                onClick={submitCreate} 
-                disabled={!createTitle.trim() || !createBody.trim()}
-              >
+              <Button variant="ghost" onClick={() => setCreateOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={submitCreate} disabled={!createTitle.trim() || !createBody.trim()}>
                 Publish
               </Button>
             </div>
@@ -679,10 +675,8 @@ export default function HomePage() {
       {editOpen && (
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <Card className="w-full max-w-md p-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">
-              {profile ? "Edit profile" : "Create profile"}
-            </h3>
-            
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">{profile ? "Edit profile" : "Create profile"}</h3>
+
             <div className="space-y-3">
               <div>
                 <label className="block text-sm text-gray-700 mb-1">Name</label>
@@ -693,7 +687,7 @@ export default function HomePage() {
                   placeholder="Your full name"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm text-gray-700 mb-1">Title</label>
                 <input
@@ -704,13 +698,12 @@ export default function HomePage() {
                 />
               </div>
             </div>
-            
+
             <div className="mt-3 flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => setEditOpen(false)}>Cancel</Button>
-              <Button 
-                onClick={saveProfile} 
-                disabled={!editName.trim() || !editTitle.trim()}
-              >
+              <Button variant="ghost" onClick={() => setEditOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={saveProfile} disabled={!editName.trim() || !editTitle.trim()}>
                 {profile ? "Update" : "Create"}
               </Button>
             </div>

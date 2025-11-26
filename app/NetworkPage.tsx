@@ -33,41 +33,48 @@ interface Invitation {
   message?: string;
 }
 
-/** --- Safe fetch helper --- **/
-async function safeJsonFetch(url: string, opts: RequestInit = {}) {
-  const res = await fetch(url, { credentials: "include", ...opts });
+/** --- Device key + safe apiFetch helper (adds x-device-key & credentials) --- **/
+function getDeviceKey(): string {
+  try {
+    if (typeof window === "undefined") return "";
+    return localStorage.getItem("onelink_device_key") || "";
+  } catch {
+    return "";
+  }
+}
+
+async function apiFetch(url: string, opts: RequestInit = {}) {
+  const headers = new Headers(opts.headers || {});
+  try {
+    const dk = getDeviceKey();
+    if (dk) headers.set("x-device-key", dk);
+  } catch {}
+
+  // only set content-type for non-GET to avoid interfering with file uploads, etc.
+  if (!headers.get("Content-Type") && (opts.method || "GET").toUpperCase() !== "GET") {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const res = await fetch(url, { credentials: "include", ...opts, headers });
+
   const ct = res.headers.get("content-type") || "";
 
-  // non-OK responses: try to parse JSON body (if any) for error message
+  // handle non-ok responses and include parsed body if possible
   if (!res.ok) {
     let body: any = null;
     if (ct.includes("application/json")) {
-      try {
-        body = await res.json();
-      } catch (e) {
-        body = null;
-      }
+      try { body = await res.json(); } catch { body = null; }
     } else {
-      try {
-        const text = await res.text();
-        body = text || null;
-      } catch {
-        body = null;
-      }
+      try { body = await res.text(); } catch { body = null; }
     }
-    const err = new Error(`Request failed ${res.status}`);
-    (err as any).status = res.status;
-    (err as any).body = body;
+    const err: any = new Error(`Request failed ${res.status}`);
+    err.status = res.status;
+    err.body = body;
     throw err;
   }
 
-  // 204 No Content
   if (res.status === 204) return null;
-
-  if (!ct.includes("application/json")) {
-    // not JSON — return null so caller can decide
-    return null;
-  }
+  if (!ct.includes("application/json")) return null;
 
   try {
     return await res.json();
@@ -111,14 +118,29 @@ const NetworkPage: React.FC = () => {
     setSuggestedPeople(initialSuggestedPeople);
   }, []);
 
+  // AUTH CHECK: ensure user is logged in, else redirect
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        await apiFetch("/api/auth/me", { cache: "no-store", method: "GET" });
+        // if ok, do nothing (user remains)
+      } catch (err) {
+        if (!active) return;
+        // redirect to login if unauthorized/error
+        router.replace(`/login?next=${encodeURIComponent(window.location.pathname)}`);
+      }
+    })();
+    return () => { active = false; };
+  }, [router]);
+
   // Fetch real registered users for "People you may know"
   useEffect(() => {
     let active = true;
     (async () => {
       setLoadingUsers(true);
       try {
-        // use safe helper which throws on non-ok
-        const data = await safeJsonFetch("/api/users", { cache: "no-store" });
+        const data = await apiFetch("/api/users", { cache: "no-store", method: "GET" });
 
         if (!active) return;
 
@@ -154,10 +176,8 @@ const NetworkPage: React.FC = () => {
 
         setSuggestedPeople(mapped);
       } catch (err: any) {
-        // robust logging so you know why it failed
         console.error("Failed to load users (safeJsonFetch):", err?.message ?? err, { status: err?.status, body: err?.body ?? null });
         // keep mocks (do not remove existing local suggestions)
-        setSuggestedPeople(prev => prev);
       } finally {
         if (active) setLoadingUsers(false);
       }
@@ -166,7 +186,7 @@ const NetworkPage: React.FC = () => {
     return () => { active = false; };
   }, []);
 
-  // Filter logic (unchanged)
+  // Filter logic
   const filteredConnections = useMemo(() => {
     return connections.filter(connection =>
       connection.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -189,7 +209,7 @@ const NetworkPage: React.FC = () => {
     );
   }, [suggestedPeople, searchQuery]);
 
-  // Handlers (unchanged)
+  // Handlers
   const handleAcceptInvitation = (invitationId: string) => {
     const invitation = invitations.find(inv => inv.id === invitationId);
     if (!invitation) return;

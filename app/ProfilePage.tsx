@@ -1,10 +1,49 @@
-'use client';
+"use client";
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-/* ---------- Types ---------- */
+/* ======================================================
+   DEVICE KEY + API WRAPPER
+====================================================== */
+
+function getDeviceKey() {
+  try {
+    return typeof window !== "undefined"
+      ? localStorage.getItem("onelink_device_key") || ""
+      : "";
+  } catch {
+    return "";
+  }
+}
+
+async function apiFetch(url: string, opts: RequestInit = {}) {
+  const headers = new Headers(opts.headers || {});
+  const dk = getDeviceKey();
+  if (dk) headers.set("x-device-key", dk);
+
+  if (!headers.get("Content-Type") && opts.method !== "GET") {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const res = await fetch(url, {
+    credentials: "include",
+    ...opts,
+    headers,
+  });
+
+  let data = null;
+  try {
+    data = await res.json();
+  } catch {}
+
+  return { ok: res.ok, status: res.status, data };
+}
+
+/* ======================================================
+   TYPES
+====================================================== */
 type UserResp = {
   user: {
     _id: string;
@@ -17,7 +56,6 @@ type UserResp = {
     profileImage?: string;
     coverImage?: string;
   } | null;
-  error?: string;
 };
 
 type Post = {
@@ -26,47 +64,22 @@ type Post = {
   body: string;
   createdAt?: string;
   updatedAt?: string;
-  author: { _id: string; name: string; username: string };
 };
 
-/* ---------- Helpers ---------- */
-
-function getDeviceKeyHeader() {
-  try {
-    const dk = (typeof window !== 'undefined') ? localStorage.getItem('onelink_device_key') : "";
-    return dk || "";
-  } catch {
-    return "";
-  }
-}
-
-async function apiFetch(path: string, opts: RequestInit = {}) {
-  const headers = new Headers(opts.headers || {});
-  const dk = getDeviceKeyHeader();
-  if (dk) headers.set('x-device-key', dk);
-  headers.set('Content-Type', headers.get('Content-Type') || 'application/json');
-
-  const res = await fetch(path, {
-    credentials: 'include',
-    ...opts,
-    headers,
-  });
-
-  let data;
-  try { data = await res.json(); } catch { data = {}; }
-  return { ok: res.ok, status: res.status, data };
-}
-
-/* ---------- Component ---------- */
+/* ======================================================
+   MAIN PAGE
+====================================================== */
 
 export default function ProfilePageClient() {
   const router = useRouter();
 
   const [user, setUser] = useState<UserResp["user"] | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  // edit profile modal
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [postsLoading, setPostsLoading] = useState(false);
+
+  /* ---------- Profile editing modal ---------- */
   const [editing, setEditing] = useState(false);
   const [editValues, setEditValues] = useState({
     name: "",
@@ -76,76 +89,56 @@ export default function ProfilePageClient() {
     about: "",
     profileImage: "",
   });
-  const [saving, setSaving] = useState(false);
 
-  // change password modal
+  /* ---------- Password modal ---------- */
   const [pwdOpen, setPwdOpen] = useState(false);
-  const [currentPwd, setCurrentPwd] = useState("");
-  const [newPwd, setNewPwd] = useState("");
-  const [pwdLoading, setPwdLoading] = useState(false);
+  const [pwdState, setPwdState] = useState({
+    current: "",
+    next: "",
+  });
 
-  // posts
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [postsLoading, setPostsLoading] = useState(false);
-  const [postError, setPostError] = useState<string | null>(null);
+  /* ======================================================
+     FETCH CURRENT USER
+  ======================================================= */
 
-  // edit post state
-  const [editingPostId, setEditingPostId] = useState<string | null>(null);
-  const [editingPostBody, setEditingPostBody] = useState<{ title: string; body: string }>({ title: "", body: "" });
-  const [postSaving, setPostSaving] = useState(false);
-
-  // fetch current user
   useEffect(() => {
-    let mounted = true;
-    setLoading(true);
-    setError(null);
-
     (async () => {
-      const res = await apiFetch("/api/auth/me", { method: "GET" });
-      if (!mounted) return;
-      if (!res.ok) {
-        setError(res.data?.error || "Not authenticated");
-        setUser(null);
-        setLoading(false);
-        // redirect to login if unauth
-        if (res.status === 401) router.push(`/login?next=/profile`);
+      const res = await apiFetch("/api/auth/me");
+      if (!res.ok || !res.data?.user) {
+        router.replace("/login?next=/profile");
         return;
       }
       setUser(res.data.user);
       setLoading(false);
     })();
-
-    return () => { mounted = false; };
   }, [router]);
 
-  // fetch user's posts once user is loaded
+  /* ======================================================
+     FETCH POSTS OF USER
+  ======================================================= */
+
   useEffect(() => {
-    if (!user || !user._id) return;
-    fetchPosts(user._id);
+    if (!user?._id) return;
+    loadPosts();
   }, [user]);
 
-  async function fetchPosts(userId: string) {
+  async function loadPosts() {
     setPostsLoading(true);
-    setPostError(null);
-    const res = await apiFetch(`/api/posts?userId=${encodeURIComponent(userId)}`, { method: "GET" });
-    if (!res.ok) {
-      setPostError(res.data?.error || "Failed to load posts");
-      setPosts([]);
-      setPostsLoading(false);
-      return;
-    }
-    setPosts(res.data.posts || []);
+    const res = await apiFetch(`/api/posts?userId=${user?._id}`);
+    setPosts(res.data?.posts || []);
     setPostsLoading(false);
   }
 
-  /* ---------- Profile Edit Handlers ---------- */
+  /* ======================================================
+     EDIT PROFILE HANDLERS
+  ======================================================= */
 
-  function openEditModal() {
+  function startEdit() {
     if (!user) return;
     setEditValues({
-      name: user.name || "",
-      username: user.username || "",
-      email: user.email || "",
+      name: user.name,
+      username: user.username,
+      email: user.email,
       headline: user.headline || "",
       about: user.about || "",
       profileImage: user.profileImage || "",
@@ -154,231 +147,255 @@ export default function ProfilePageClient() {
   }
 
   async function saveProfile() {
-    if (!user) return;
-    setSaving(true);
-    const payload = { ...editValues };
     const res = await apiFetch("/api/users", {
       method: "PUT",
-      body: JSON.stringify(payload),
+      body: JSON.stringify(editValues),
     });
 
     if (!res.ok) {
       alert(res.data?.error || "Failed to update profile");
-      setSaving(false);
       return;
     }
-
-    setUser(res.data.user || { ...user, ...payload });
+    setUser(res.data.user);
     setEditing(false);
-    setSaving(false);
   }
 
-  /* ---------- Change Password ---------- */
+  /* ======================================================
+     CHANGE PASSWORD
+  ======================================================= */
 
   async function changePassword() {
-    setPwdLoading(true);
     const res = await apiFetch("/api/auth/change-password", {
       method: "POST",
-      body: JSON.stringify({ currentPassword: currentPwd, newPassword: newPwd }),
+      body: JSON.stringify({
+        currentPassword: pwdState.current,
+        newPassword: pwdState.next,
+      }),
     });
 
     if (!res.ok) {
       alert(res.data?.error || "Failed to change password");
-      setPwdLoading(false);
       return;
     }
-    alert("Password changed successfully");
+
+    alert("Password updated successfully");
     setPwdOpen(false);
-    setCurrentPwd("");
-    setNewPwd("");
-    setPwdLoading(false);
+    setPwdState({ current: "", next: "" });
   }
 
-  /* ---------- Delete Account ---------- */
+  /* ======================================================
+     DELETE ACCOUNT
+  ======================================================= */
 
   async function deleteAccount() {
-    if (!confirm("Are you sure you want to delete your account? This action is irreversible.")) return;
+    if (!confirm("This cannot be undone. Delete your account?")) return;
+
     const res = await apiFetch("/api/users", { method: "DELETE" });
-    if (!res.ok) {
+    if (res.ok) {
+      router.push("/login");
+    } else {
       alert(res.data?.error || "Failed to delete account");
-      return;
     }
-    // on success redirect to login or home
-    router.push("/login");
   }
 
-  /* ---------- Posts: edit/delete ---------- */
+  /* ======================================================
+     RENDER
+  ======================================================= */
 
-  function startEditPost(p: Post) {
-    setEditingPostId(p._id);
-    setEditingPostBody({ title: p.title, body: p.body });
-  }
+  if (loading)
+    return <div className="p-10 text-center text-lg">Loading profile…</div>;
 
-  async function savePostEdit() {
-    if (!editingPostId) return;
-    setPostSaving(true);
-    const res = await apiFetch(`/api/posts/${editingPostId}`, {
-      method: "PUT",
-      body: JSON.stringify(editingPostBody),
-    });
-    if (!res.ok) {
-      alert(res.data?.error || "Failed to update post");
-      setPostSaving(false);
-      return;
-    }
-    // update local posts list
-    setPosts(prev => prev.map(p => (p._id === editingPostId ? { ...p, ...editingPostBody, updatedAt: new Date().toISOString() } : p)));
-    setEditingPostId(null);
-    setPostSaving(false);
-  }
-
-  async function deletePost(id: string) {
-    if (!confirm("Delete this post?")) return;
-    const res = await apiFetch(`/api/posts/${id}`, { method: "DELETE" });
-    if (!res.ok) {
-      alert(res.data?.error || "Failed to delete post");
-      return;
-    }
-    setPosts(prev => prev.filter(p => p._id !== id));
-  }
-
-  /* ---------- Render ---------- */
-
-  if (loading) return <div className="p-8">Loading profile...</div>;
-  if (!user) return <div className="p-8">Not authenticated.</div>;
+  if (!user)
+    return <div className="p-10 text-center text-lg">Not authenticated.</div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      {/* Header */}
-      <div className="max-w-4xl mx-auto bg-white rounded-lg shadow p-6">
-        <div className="flex items-center gap-4">
-          <img src={user.profileImage || "/api/placeholder/150/150"} alt="avatar" className="w-24 h-24 rounded-full object-cover" />
+    <div className="min-h-screen bg-gray-100 pb-20">
+
+      {/* ======================================================
+           COVER + HEADER CARD
+      ======================================================= */}
+      <div className="relative w-full h-52 bg-gradient-to-br from-indigo-500 to-blue-600 shadow-lg">
+        {user.coverImage && (
+          <img
+            src={user.coverImage}
+            className="w-full h-full object-cover opacity-90"
+          />
+        )}
+      </div>
+
+      <div className="max-w-4xl mx-auto">
+        <div className="-mt-16 bg-white rounded-xl shadow p-6 flex gap-6 items-center relative">
+          <img
+            src={user.profileImage || "/api/placeholder/200/200"}
+            className="w-32 h-32 rounded-full border-4 border-white shadow object-cover"
+          />
+
           <div className="flex-1">
-            <h1 className="text-2xl font-semibold">{user.name}</h1>
-            <p className="text-sm text-gray-600">@{user.username}</p>
+            <h1 className="text-3xl font-bold text-gray-900">{user.name}</h1>
+            <p className="text-gray-500">@{user.username}</p>
             <p className="mt-2 text-gray-700">{user.headline}</p>
-            <p className="mt-2 text-sm text-gray-500">{user.location}</p>
+            {user.location && (
+              <p className="text-sm text-gray-500 mt-1">{user.location}</p>
+            )}
           </div>
-          <div className="flex flex-col gap-2">
-            <button className="px-4 py-2 bg-blue-600 text-white rounded" onClick={openEditModal}>Edit Profile</button>
-            <button className="px-4 py-2 border rounded" onClick={() => setPwdOpen(true)}>Change Password</button>
-            <button className="px-4 py-2 bg-red-600 text-white rounded" onClick={deleteAccount}>Delete Account</button>
+
+          <div className="space-y-2">
+            <button
+              onClick={startEdit}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700"
+            >
+              Edit Profile
+            </button>
+            <button
+              onClick={() => setPwdOpen(true)}
+              className="px-4 py-2 bg-gray-200 rounded-lg shadow hover:bg-gray-300"
+            >
+              Change Password
+            </button>
+            <button
+              onClick={deleteAccount}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg shadow hover:bg-red-700"
+            >
+              Delete Account
+            </button>
           </div>
         </div>
-        <div className="mt-4 text-gray-700">{user.about}</div>
       </div>
 
-      {/* Main area: posts + right column */}
-      <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-        {/* Posts column */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="bg-white rounded-lg shadow p-4">
-            <h2 className="font-semibold text-lg">Your Posts</h2>
-            {postsLoading && <div className="mt-2">Loading posts...</div>}
-            {postError && <div className="text-sm text-red-500 mt-2">{postError}</div>}
-            {!postsLoading && posts.length === 0 && <div className="mt-2 text-sm text-gray-500">You have not posted anything yet.</div>}
+      {/* ABOUT */}
+      <div className="max-w-4xl mx-auto mt-6 bg-white shadow rounded-xl p-6">
+        <h3 className="text-xl font-semibold mb-2">About</h3>
+        <p className="text-gray-700 leading-relaxed">{user.about || "No bio added yet."}</p>
+      </div>
 
-            <div className="space-y-4 mt-4">
-              {posts.map(p => (
-                <div key={p._id} className="border rounded p-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-semibold">{p.title}</h3>
-                      <p className="text-sm text-gray-600">{p.body}</p>
-                      <p className="text-xs text-gray-400 mt-2">Updated: {p.updatedAt ? new Date(p.updatedAt).toLocaleString() : p.createdAt ? new Date(p.createdAt).toLocaleString() : ""}</p>
-                    </div>
-                    <div className="flex flex-col gap-2 ml-4">
-                      <button className="text-sm text-blue-600" onClick={() => startEditPost(p)}>Edit</button>
-                      <button className="text-sm text-red-600" onClick={() => deletePost(p._id)}>Delete</button>
-                    </div>
-                  </div>
+      {/* ======================================================
+           POSTS SECTION
+      ======================================================= */}
+      <div className="max-w-4xl mx-auto mt-6 bg-white shadow rounded-xl p-6">
+        <h3 className="text-xl font-semibold mb-4">Your Posts</h3>
 
-                  {/* inline edit area */}
-                  {editingPostId === p._id && (
-                    <div className="mt-3 space-y-2">
-                      <input className="w-full border rounded px-2 py-1" value={editingPostBody.title} onChange={(e)=>setEditingPostBody(s=>({ ...s, title: e.target.value }))} />
-                      <textarea className="w-full border rounded px-2 py-1" rows={4} value={editingPostBody.body} onChange={(e)=>setEditingPostBody(s=>({ ...s, body: e.target.value }))} />
-                      <div className="flex gap-2 justify-end">
-                        <button onClick={()=>setEditingPostId(null)} className="px-3 py-1 border rounded">Cancel</button>
-                        <button onClick={savePostEdit} disabled={postSaving} className="px-3 py-1 bg-blue-600 text-white rounded">{postSaving ? "Saving..." : "Save"}</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        {postsLoading && <p>Loading posts…</p>}
+        {!postsLoading && posts.length === 0 && (
+          <p className="text-gray-500">You haven't posted anything yet.</p>
+        )}
 
-        {/* Right column (profile details + actions) */}
         <div className="space-y-4">
-          <div className="bg-white rounded-lg shadow p-4">
-            <h3 className="font-semibold">Contact</h3>
-            <p className="mt-2 text-sm"><strong>Email:</strong> {user.email}</p>
-            <p className="mt-1 text-sm"><strong>Username:</strong> @{user.username}</p>
-          </div>
+          {posts.map((p) => (
+            <div
+              key={p._id}
+              className="border rounded-lg p-4 hover:shadow transition"
+            >
+              <h4 className="font-semibold text-lg">{p.title}</h4>
+              <p className="text-gray-700 mt-1">{p.body}</p>
+              <p className="text-xs text-gray-400 mt-2">
+                {new Date(p.updatedAt || p.createdAt || "").toLocaleString()}
+              </p>
 
-          <div className="bg-white rounded-lg shadow p-4">
-            <h3 className="font-semibold">Shortcuts</h3>
-            <div className="mt-2 flex flex-col gap-2">
-              <Link href="/posts/create" className="px-3 py-2 border rounded text-sm text-center">Create New Post</Link>
-              <Link href="/settings" className="px-3 py-2 border rounded text-sm text-center">Account Settings</Link>
+              <div className="mt-2 flex gap-3">
+                <button
+                  onClick={() => router.push(`/posts/${p._id}/edit`)}
+                  className="text-blue-600 text-sm hover:underline"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => deleteAccount()}
+                  className="text-red-600 text-sm hover:underline"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
-          </div>
+          ))}
         </div>
       </div>
 
-      {/* ---------- Edit Profile Modal ---------- */}
+      {/* ======================================================
+           EDIT PROFILE MODAL
+      ======================================================= */}
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-lg w-full max-w-2xl p-6">
-            <h3 className="text-lg font-semibold">Edit Profile</h3>
-            <div className="mt-4 grid grid-cols-1 gap-3">
-              <label className="text-sm">Name
-                <input className="w-full border rounded px-2 py-1" value={editValues.name} onChange={(e)=>setEditValues(s=>({ ...s, name: e.target.value }))} />
-              </label>
-              <label className="text-sm">Username
-                <input className="w-full border rounded px-2 py-1" value={editValues.username} onChange={(e)=>setEditValues(s=>({ ...s, username: e.target.value }))} />
-              </label>
-              <label className="text-sm">Email
-                <input className="w-full border rounded px-2 py-1" value={editValues.email} onChange={(e)=>setEditValues(s=>({ ...s, email: e.target.value }))} />
-              </label>
-              <label className="text-sm">Headline
-                <input className="w-full border rounded px-2 py-1" value={editValues.headline} onChange={(e)=>setEditValues(s=>({ ...s, headline: e.target.value }))} />
-              </label>
-              <label className="text-sm">About
-                <textarea className="w-full border rounded px-2 py-1" rows={4} value={editValues.about} onChange={(e)=>setEditValues(s=>({ ...s, about: e.target.value }))} />
-              </label>
-              <label className="text-sm">Profile Image URL
-                <input className="w-full border rounded px-2 py-1" value={editValues.profileImage} onChange={(e)=>setEditValues(s=>({ ...s, profileImage: e.target.value }))} />
-              </label>
+        <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-50">
+          <div className="bg-white p-6 rounded-xl shadow max-w-xl w-full">
+            <h2 className="text-xl font-semibold mb-4">Edit Profile</h2>
+
+            <div className="grid grid-cols-1 gap-3">
+              {Object.keys(editValues).map((key) => (
+                <label key={key} className="text-sm font-medium">
+                  {key.replace(/([A-Z])/g, " $1")}
+                  <input
+                    className="w-full border mt-1 rounded px-2 py-1"
+                    value={(editValues as any)[key]}
+                    onChange={(e) =>
+                      setEditValues((s) => ({ ...s, [key]: e.target.value }))
+                    }
+                  />
+                </label>
+              ))}
             </div>
 
             <div className="mt-4 flex justify-end gap-2">
-              <button onClick={()=>setEditing(false)} className="px-3 py-2 border rounded">Cancel</button>
-              <button onClick={saveProfile} disabled={saving} className="px-3 py-2 bg-blue-600 text-white rounded">{saving ? "Saving..." : "Save changes"}</button>
+              <button
+                onClick={() => setEditing(false)}
+                className="px-4 py-2 border rounded"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveProfile}
+                className="px-4 py-2 bg-blue-600 text-white rounded"
+              >
+                Save Changes
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ---------- Change Password Modal ---------- */}
+      {/* ======================================================
+           PASSWORD MODAL
+      ======================================================= */}
       {pwdOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-lg w-full max-w-md p-6">
-            <h3 className="text-lg font-semibold">Change Password</h3>
-            <div className="mt-4 space-y-3">
-              <label className="text-sm">Current Password
-                <input type="password" className="w-full border rounded px-2 py-1" value={currentPwd} onChange={e=>setCurrentPwd(e.target.value)} />
-              </label>
-              <label className="text-sm">New Password
-                <input type="password" className="w-full border rounded px-2 py-1" value={newPwd} onChange={e=>setNewPwd(e.target.value)} />
-              </label>
-            </div>
+        <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-50">
+          <div className="bg-white p-6 rounded-xl shadow max-w-md w-full">
+            <h2 className="text-xl font-semibold mb-4">Change Password</h2>
+
+            <label className="block text-sm">
+              Current Password
+              <input
+                type="password"
+                className="w-full border rounded mt-1 px-2 py-1"
+                value={pwdState.current}
+                onChange={(e) =>
+                  setPwdState((s) => ({ ...s, current: e.target.value }))
+                }
+              />
+            </label>
+
+            <label className="block text-sm mt-3">
+              New Password
+              <input
+                type="password"
+                className="w-full border rounded mt-1 px-2 py-1"
+                value={pwdState.next}
+                onChange={(e) =>
+                  setPwdState((s) => ({ ...s, next: e.target.value }))
+                }
+              />
+            </label>
 
             <div className="mt-4 flex justify-end gap-2">
-              <button onClick={()=>setPwdOpen(false)} className="px-3 py-2 border rounded">Cancel</button>
-              <button onClick={changePassword} disabled={pwdLoading} className="px-3 py-2 bg-blue-600 text-white rounded">{pwdLoading ? "Saving..." : "Change password"}</button>
+              <button
+                onClick={() => setPwdOpen(false)}
+                className="px-4 py-2 border rounded"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={changePassword}
+                className="px-4 py-2 bg-blue-600 text-white rounded"
+              >
+                Update
+              </button>
             </div>
           </div>
         </div>
