@@ -3,6 +3,7 @@ components/HomePage/HomePage.module.css
   min-height: 100vh;
   background: linear-gradient(135deg, #e0e3e7 0%, #919db6 100%);
   /* padding-left: 13%; */
+  align-items: center;
 }
 
 .mainGrid {
