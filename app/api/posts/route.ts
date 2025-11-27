@@ -3,37 +3,20 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { dbConnect } from "../../src/lib/ConnectDB";
 import { Post } from "../../src/models/posts";
-import { getSessionBySignedToken } from "../../src/lib/session";
-import { cookies } from "next/headers";
+import { getSessionBySignedToken, destroySession } from "../../src/lib/session";
 
-const COOKIE_NAME = "session_id";
+const SESSION_COOKIE = "session_id";
+const AUTH_COOKIE = "auth_token";
 
-async function getCurrentUserId() {
-  try {
-    const jar = cookies();
-    const signed = (await jar).get(COOKIE_NAME)?.value;
-    if (!signed) return null;
-    const session = await getSessionBySignedToken(signed);
-    if (!session) return null;
-    return String((session.user as any)?._id || session.user);
-  } catch (err) {
-    console.error("getCurrentUserId error:", err);
-    return null;
-  }
-}
-
-export async function GET(req: Request) {
+export async function GET() {
   try {
     await dbConnect();
+    const posts = await Post.find({}).sort({ createdAt: -1 }).lean();
 
-    const posts = await Post.find({}).sort({ createdAt: -1 }).lean().catch(() => {
-      console.error("Post.find error:");
-      return [];
-    });
-
-    const normalized = Array.isArray(posts) ? posts.map((p: any) => ({
+    const normalized = posts.map((p: any) => ({
       _id: p._id,
       user: p.user ?? null,
       title: p.title ?? "",
@@ -44,40 +27,72 @@ export async function GET(req: Request) {
       shares: typeof p.shares === "number" ? p.shares : 0,
       createdAt: p.createdAt ?? p.created_at,
       updatedAt: p.updatedAt ?? p.updated_at,
-    })) : [];
+    }));
 
     return NextResponse.json({ posts: normalized }, { status: 200 });
-  } catch (err: any) {
-    console.error("GET /api/posts error:", err?.stack ?? err);
+  } catch (err) {
+    console.error("GET /api/posts error:", err);
     return NextResponse.json({ posts: [], error: "Server error" }, { status: 500 });
   }
 }
 
 export async function POST(req: Request) {
   try {
-    const userId = await getCurrentUserId();
-    if (!userId) {
+    await dbConnect();
+
+    const jar = await cookies();
+    const signed = jar.get(SESSION_COOKIE)?.value || null;
+
+    // device key: header > cookie
+    const deviceKeyHeader = req.headers.get("x-device-key") || null;
+    const deviceKeyCookie = jar.get("device_key")?.value || null;
+    const deviceKey = deviceKeyHeader || deviceKeyCookie || null;
+
+    if (!signed || !deviceKey) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await req.json().catch(() => ({}));
-    const { title, content, user, avatar } = body || {};
-    const actualContent = content ?? (body?.body ?? null);
-
-    if (!title || !actualContent) {
-      return NextResponse.json({ error: "Missing title or content" }, { status: 400 });
+    const session = await getSessionBySignedToken(signed);
+    if (!session) {
+      const res = NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      res.cookies.set(SESSION_COOKIE, "", { path: "/", httpOnly: true, maxAge: 0 });
+      res.cookies.set(AUTH_COOKIE, "", { path: "/", httpOnly: true, maxAge: 0 });
+      return res;
     }
 
-    await dbConnect();
+    // server-side deviceKey check
+    if (session.deviceKey && session.deviceKey !== deviceKey) {
+      try { await destroySession(session.sid); } catch {}
+      const res = NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      res.cookies.set(SESSION_COOKIE, "", { path: "/", httpOnly: true, maxAge: 0 });
+      res.cookies.set(AUTH_COOKIE, "", { path: "/", httpOnly: true, maxAge: 0 });
+      return res;
+    }
+
+    // session.user may be populated doc or just id
+    const userId =
+      (session.user && (session.user as any)._id)
+        ? String((session.user as any)._id)
+        : String(session.user);
+
+    const body = await req.json().catch(() => ({}));
+    const { title, content, user, avatar } = body || {};
+    const actualContent = content ?? body?.body ?? "";
+
+    if (!title || !actualContent) {
+      return NextResponse.json(
+        { error: "Missing title or content" },
+        { status: 400 }
+      );
+    }
 
     const created = await Post.create({
-      user: user ?? userId,
+      user: user || userId,           // tum display-name bhi bhej rahe ho, ya id store kar sakte ho
       title,
       content: actualContent,
-      avatar: avatar ?? "",
+      avatar: avatar || "",
       likes: 0,
       comments: [],
-      // timestamps handled by schema timestamps:true
     });
 
     const out = {
@@ -88,14 +103,14 @@ export async function POST(req: Request) {
       avatar: created.avatar,
       likes: created.likes ?? 0,
       comments: created.comments ?? [],
-      shares: created.shares ?? 0,
-      createdAt: created.createdAt ?? new Date().toISOString(),
-      updatedAt: created.updatedAt ?? new Date().toISOString(),
+      shares: (created as any).shares ?? 0,
+      createdAt: created.createdAt,
+      updatedAt: created.updatedAt,
     };
 
-    return NextResponse.json({ ok: true, post: out }, { status: 201 });
-  } catch (err: any) {
-    console.error("POST /api/posts error:", err?.stack ?? err);
+    return NextResponse.json({ post: out }, { status: 201 });
+  } catch (err) {
+    console.error("POST /api/posts error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

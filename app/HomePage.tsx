@@ -317,7 +317,7 @@ export default function HomePage() {
           content: optimistic.content,
           avatar: profile.avatar,
         }),
-      });
+      }).catch(() => null);
       const created = createdRaw?.post ? createdRaw.post : createdRaw ?? null;
       if (!created) {
         toast("Post published");
