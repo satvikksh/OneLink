@@ -52,7 +52,7 @@ export async function safeJsonFetch(url: string, opts: RequestInit = {}) {
   if (!headers.get("Content-Type") && (opts.method ?? "GET").toUpperCase() !== "GET") {
     headers.set("Content-Type", "application/json");
   }
-  const res = await fetch(url, { credentials: "include", ...opts, headers });
+const res = await fetch(url, { ...opts, credentials: "include", headers });
   if (!res.ok) {
     if (res.headers.get("content-type")?.includes("application/json")) {
       const err = await res.json().catch(() => ({}));
@@ -306,7 +306,7 @@ export default function HomePage() {
       shares: 0,
       isLiked: false,
     };
-    setPosts(prev => [optimistic, ...prev]);
+   setPosts(prev => prev.filter(p => p.mongoId !== optimistic.mongoId));
     setCreateOpen(false);
     try {
       const createdRaw = await safeJsonFetch("/api/posts", {
