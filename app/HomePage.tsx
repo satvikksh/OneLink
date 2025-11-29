@@ -43,24 +43,55 @@ const roleToTitle = (role?: string) =>
 
 export async function safeJsonFetch(url: string, opts: RequestInit = {}) {
   const headers = new Headers(opts.headers || {});
+
+  // ✅ add device-key header from localStorage
   try {
     if (typeof window !== "undefined") {
-      const dk = window.localStorage.getItem("onelink_device_key");
+      const dk = localStorage.getItem("onelink_device_key");
       if (dk) headers.set("x-device-key", dk);
     }
-  } catch {}
-  if (!headers.get("Content-Type") && (opts.method ?? "GET").toUpperCase() !== "GET") {
-    headers.set("Content-Type", "application/json");
+  } catch {
+    // ignore
   }
-const res = await fetch(url, { ...opts, credentials: "include", headers });
+
+  const res = await fetch(url, { ...opts, credentials: "include", headers });
+  const ct = res.headers.get("content-type") || "";
+
+  // 🔐 special case: 401 → logout + redirect
+  if (res.status === 401) {
+    let data: any = null;
+    if (ct.includes("application/json")) {
+      data = await res.json().catch(() => null);
+    }
+
+    // local device key clear
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("onelink_device_key");
+      }
+    } catch {}
+
+    // redirect to login (front-end)
+    if (typeof window !== "undefined") {
+      const next = window.location.pathname + window.location.search;
+      window.location.href = `/login?next=${encodeURIComponent(next)}`;
+    }
+
+    throw new Error(data?.error || data?.message || "Unauthorized");
+  }
+
+  // other non-OK
   if (!res.ok) {
-    if (res.headers.get("content-type")?.includes("application/json")) {
+    if (ct.includes("application/json")) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err?.error || err?.message || `Request failed ${res.status}`);
     }
     throw new Error(`Request failed ${res.status}`);
   }
+
   if (res.status === 204) return null;
+  if (!ct.includes("application/json")) return null;
+
   try {
     return await res.json();
   } catch {
@@ -290,67 +321,71 @@ export default function HomePage() {
     setCreateOpen(true);
   }, [profile]);
 
-  const submitCreate = useCallback(async () => {
-    if (!profile || !createTitle.trim() || !createBody.trim()) return;
-    const tempId = Date.now();
-    const optimistic: UIPost = {
-      mongoId: `temp-${tempId}`,
-      id: posts.length ? Math.max(...posts.map(p => p.id)) + 1 : 1,
-      user: profile.name,
-      avatar: profile.avatar,
-      title: createTitle.trim(),
-      content: createBody.trim(),
-      timestamp: "Just now",
-      likes: 0,
-      comments: 0,
-      shares: 0,
-      isLiked: false,
-    };
-   setPosts(prev => prev.filter(p => p.mongoId !== optimistic.mongoId));
-    setCreateOpen(false);
-    try {
-      const createdRaw = await safeJsonFetch("/api/posts", {
-        method: "POST",
-        body: JSON.stringify({
-          user: profile.name,
-          title: optimistic.title,
-          content: optimistic.content,
-          avatar: profile.avatar,
-        }),
-      }).catch(() => null);
-      const created = createdRaw?.post ? createdRaw.post : createdRaw ?? null;
-      if (!created) {
-        toast("Post published");
-        return;
-      }
-      setPosts(prev => {
-        const others = prev.filter(p => p.mongoId !== optimistic.mongoId);
-        return [
-          {
-            mongoId: created._id ?? created.id ?? `created-${Date.now()}`,
-            id: optimistic.id,
-            user: created.user ?? created.author ?? profile.name,
-            avatar: created.avatar ?? profile.avatar,
-            title: created.title ?? optimistic.title,
-            content: created.content ?? created.body ?? optimistic.content,
-            timestamp: new Date(created.createdAt ?? created.created_at ?? Date.now()).toLocaleString(),
-            likes: typeof created.likes === "number" ? created.likes : 0,
-            comments: Array.isArray(created.comments) ? created.comments.length : typeof created.comments === "number" ? created.comments : 0,
-            shares: typeof created.shares === "number" ? created.shares : 0,
-            isLiked: false,
-            createdAt: created.createdAt ?? created.created_at,
-          },
-          ...others,
-        ];
-      });
-      setProfile(p => (p ? { ...p, postImpressions: p.postImpressions + 1 } : p));
-      toast("Post published", "success");
-    } catch (err) {
-      console.error("create post failed:", err);
-      setPosts(prev => prev.filter(p => p.mongoId !== optimistic.mongoId));
-      toast("Failed to publish post", "error");
+const submitCreate = useCallback(async () => {
+  if (!profile || !createTitle.trim() || !createBody.trim()) return;
+
+  const tempId = Date.now();
+  const optimistic: UIPost = {
+    mongoId: `temp-${tempId}`,
+    id: posts.length ? Math.max(...posts.map(p => p.id)) + 1 : 1,
+    user: profile.name,
+    avatar: profile.avatar,
+    title: createTitle.trim(),
+    content: createBody.trim(),
+    timestamp: "Just now",
+    likes: 0,
+    comments: 0,
+    shares: 0,
+    isLiked: false,
+  };
+
+  setPosts(prev => [optimistic, ...prev]);
+  setCreateOpen(false);
+
+  try {
+    const createdRaw: any = await safeJsonFetch("/api/posts", {
+      method: "POST",
+      body: JSON.stringify({
+        user: profile.name,
+        title: optimistic.title,
+        content: optimistic.content,
+        avatar: profile.avatar,
+      }),
+    });
+
+    const created = createdRaw?.post ?? createdRaw;
+    if (!created) return;
+
+    setPosts(prev => {
+      const others = prev.filter(p => p.mongoId !== optimistic.mongoId);
+      return [
+        {
+          mongoId: created._id ?? created.id ?? `created-${Date.now()}`,
+          id: optimistic.id,
+          user: created.user ?? profile.name,
+          avatar: created.avatar ?? profile.avatar,
+          title: created.title ?? optimistic.title,
+          content: created.content ?? optimistic.content,
+          timestamp: new Date(created.createdAt ?? Date.now()).toLocaleString(),
+          likes: created.likes ?? 0,
+          comments: Array.isArray(created.comments) ? created.comments.length : 0,
+          shares: created.shares ?? 0,
+          isLiked: false,
+          createdAt: created.createdAt,
+        },
+        ...others,
+      ];
+    });
+  } catch (err: any) {
+    // 401 case me safeJsonFetch already redirect kar dega
+    console.error("create post failed:", err);
+    setPosts(prev => prev.filter(p => p.mongoId !== optimistic.mongoId));
+    if (err?.message !== "Unauthorized") {
+      alert(err?.message || "Failed to publish post");
     }
-  }, [profile, createTitle, createBody, posts.length, toast]);
+  }
+}, [profile, createTitle, createBody, posts.length]);
+
 
   const onLike = useCallback(
     async (postId: number) => {
