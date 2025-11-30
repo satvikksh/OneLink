@@ -566,7 +566,7 @@ const submitCreate = useCallback(async () => {
   return (
     <>
       <ToastContainer />
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-60">
         <div className="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)_300px] gap-6">
           {/* ---------- left ---------- */}
           <aside className="space-y-6">
@@ -575,7 +575,7 @@ const submitCreate = useCallback(async () => {
                 <Avatar letter={(profile?.name ?? "?")[0]} size={56} />
                 <div>
                   <div className="font-semibold text-gray-900">{profile?.name ?? "Guest"}</div>
-                  <div className="text-sm text-gray-500">{profile?.title ?? "Create your profile"}</div>
+                  <div className="text-sm text-gray-550">{profile?.title ?? "Create your profile"}</div>
                 </div>
               </div>
 
