@@ -1,5 +1,5 @@
 "use client";
-
+import { authFetch } from"./src/lib/authFetch";
 import React, { useCallback, useEffect, useMemo, useState, KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 
@@ -343,7 +343,7 @@ const submitCreate = useCallback(async () => {
   setCreateOpen(false);
 
   try {
-    const createdRaw: any = await safeJsonFetch("/api/posts", {
+    const createdRaw: any = await authFetch("/api/posts", {
       method: "POST",
       body: JSON.stringify({
         user: profile.name,
