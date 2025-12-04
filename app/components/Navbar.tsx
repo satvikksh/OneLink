@@ -99,7 +99,7 @@ const Logo = React.memo<{ onClick: () => void }>(({ onClick }) => (
     aria-label="Go to home"
   >
     <div className="w-9 h-9 bg-gradient-to-br rounded-lg flex items-center justify-center shadow-lg">
-   <img src="/logo.png" alt="logo" width={90} height={60} />
+   <img src="/logo1.png" alt="logo" width={90} height={60} />
     </div>
     <span className="text-zinc-950 font-bold text-lg">
       OneLink
