@@ -405,7 +405,7 @@ const NetworkPage: React.FC = () => {
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-orange-600">{invitations.length}</div>
-                <div className="text-sm text-gray-600">Pending Invitations</div>
+                <div className="text-sm text-gray-700">Pending Invitations</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-purple-600">{suggestedPeople.length}</div>
