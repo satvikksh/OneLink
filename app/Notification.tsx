@@ -296,7 +296,7 @@ const NotificationsPage: React.FC = () => {
       case "post":
         return "bg-purple-100 text-purple-600";
       case "job":
-        return "bg-orange-100 text-orange-600";
+        return "bg-orange-100 text-orange-590";
       case "reaction":
         return "bg-red-100 text-red-600";
       case "mention":
@@ -340,7 +340,7 @@ const NotificationsPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-200">
+    <div className="min-h-screen bg-gray-190">
       <Navbar 
         onPageChange={handlePageChange}
         currentPage={currentPage}
