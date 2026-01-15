@@ -290,7 +290,7 @@ const NotificationsPage: React.FC = () => {
   const getNotificationColor = (type: string) => {
     switch(type) {
       case "connection":
-        return "bg-blue-100 text-blue-600";
+        return "bg-blue-90 text-blue-600";
       case "message":
         return "bg-green-100 text-green-600";
       case "post":
