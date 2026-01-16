@@ -40,75 +40,80 @@ export async function POST(req: Request) {
   try {
     await dbConnect();
 
-    const jar = await cookies();
-    const signed = jar.get(SESSION_COOKIE)?.value || null;
+    const jar = cookies();
+    const signed = (await jar).get("session_id")?.value ?? null;
 
-    // device key: header > cookie
-    const deviceKeyHeader = req.headers.get("x-device-key") || null;
-    const deviceKeyCookie = jar.get("device_key")?.value || null;
-    const deviceKey = deviceKeyHeader || deviceKeyCookie || null;
-
-    if (!signed || !deviceKey) {
+    if (!signed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const session = await getSessionBySignedToken(signed);
-    if (!session) {
+
+    if (!session || !session.user) {
       const res = NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-      res.cookies.set(SESSION_COOKIE, "", { path: "/", httpOnly: true, maxAge: 0 });
-      res.cookies.set(AUTH_COOKIE, "", { path: "/", httpOnly: true, maxAge: 0 });
+      res.cookies.delete("session_id");
+      res.cookies.delete("auth_token");
       return res;
     }
 
-    // server-side deviceKey check
-    if (session.deviceKey && session.deviceKey !== deviceKey) {
-      try { await destroySession(session.sid); } catch {}
-      const res = NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-      res.cookies.set(SESSION_COOKIE, "", { path: "/", httpOnly: true, maxAge: 0 });
-      res.cookies.set(AUTH_COOKIE, "", { path: "/", httpOnly: true, maxAge: 0 });
-      return res;
+    // OPTIONAL device key check (soft check, not hard fail)
+    const deviceKey =
+      req.headers.get("x-device-key") ||
+      (await jar).get("device_key")?.value ||
+      null;
+
+    if (
+      deviceKey &&
+      session.deviceKey &&
+      session.deviceKey !== deviceKey
+    ) {
+      // Do NOT destroy session here – just reject this request
+      return NextResponse.json(
+        { error: "Device mismatch" },
+        { status: 401 }
+      );
     }
 
-    // session.user may be populated doc or just id
-    const userId =
-      (session.user && (session.user as any)._id)
-        ? String((session.user as any)._id)
-        : String(session.user);
+    const body = await req.json();
+    const { title, content, avatar } = body;
 
-    const body = await req.json().catch(() => ({}));
-    const { title, content, user, avatar } = body || {};
-    const actualContent = content ?? body?.body ?? "";
-
-    if (!title || !actualContent) {
+    if (!title || !content) {
       return NextResponse.json(
         { error: "Missing title or content" },
         { status: 400 }
       );
     }
 
+    const userId =
+      typeof session.user === "object"
+        ? String((session.user as any)._id)
+        : String(session.user);
+
     const created = await Post.create({
-      user: user || userId,           // tum display-name bhi bhej rahe ho, ya id store kar sakte ho
+      user: userId,
       title,
-      content: actualContent,
-      avatar: avatar || "",
+      content,
+      avatar: avatar ?? "",
       likes: 0,
       comments: [],
     });
 
-    const out = {
-      _id: created._id,
-      user: created.user,
-      title: created.title,
-      content: created.content,
-      avatar: created.avatar,
-      likes: created.likes ?? 0,
-      comments: created.comments ?? [],
-      shares: (created as any).shares ?? 0,
-      createdAt: created.createdAt,
-      updatedAt: created.updatedAt,
-    };
-
-    return NextResponse.json({ post: out }, { status: 201 });
+    return NextResponse.json(
+      {
+        post: {
+          _id: created._id,
+          user: created.user,
+          title: created.title,
+          content: created.content,
+          avatar: created.avatar,
+          likes: created.likes,
+          comments: created.comments,
+          createdAt: created.createdAt,
+          updatedAt: created.updatedAt,
+        },
+      },
+      { status: 201 }
+    );
   } catch (err) {
     console.error("POST /api/posts error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });

@@ -148,26 +148,31 @@ export async function POST(req: Request) {
     );
 
     // auth_token cookie
-    res.cookies.set({
-      name: COOKIE_NAME,
-      value: jwtToken,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: maxAgeSec,
-    });
+res.cookies.set(
+  COOKIE_NAME,
+  jwtToken,
+  {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",            // 🔥 REQUIRED
+    maxAge: maxAgeSec,
+  }
+);
 
-    // session_id cookie – ALWAYS JWT now
-    res.cookies.set({
-      name: SESSION_COOKIE_NAME,
-      value: signedSessionCookie,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: maxAgeSec,
-    });
+// session_id cookie (JWT)
+res.cookies.set(
+  SESSION_COOKIE_NAME,
+  signedSessionCookie,
+  {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",            // 🔥 REQUIRED
+    maxAge: maxAgeSec,
+  }
+);
+
 
     res.headers.set("Cache-Control", "no-store");
     return res;
