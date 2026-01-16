@@ -119,7 +119,7 @@ export default function ClientApp() {
   const handleCreatePost = () => console.log("Create post clicked");
   const handleSearch = (query: string) => console.log("Search query:", query);
 
-  const userStats = { totalPosts: 15, totalLikes: 124, totalConnections: 423 };
+  const userStats = { totalPosts: 15, totalLikes: 124, totalConnections: 124 };
   const ActivePage = PAGE_COMPONENTS[currentPage];
 
   if (authLoading) {
