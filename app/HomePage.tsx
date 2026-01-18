@@ -468,12 +468,12 @@ const submitCreate = useCallback(async () => {
           <div className="flex-1">
             <div className="flex items-center justify-between">
               <div>
-                <div className="font-semibold text-gray-900 leading-tight">{p.user}</div>
+                <div className="font-semibold text-gray-910 leading-tight">{p.user}</div>
                 <div className="text-xs text-gray-500">{p.timestamp}</div>
               </div>
             </div>
 
-            <h3 className="mt-2 font-semibold text-gray-900">{p.title}</h3>
+            <h3 className="mt-2 font-semibold text-gray-910">{p.title}</h3>
             <p className="text-gray-700 mt-1 whitespace-pre-wrap">{p.content}</p>
 
             <div className="flex items-center gap-4 mt-3 text-sm text-gray-600">
