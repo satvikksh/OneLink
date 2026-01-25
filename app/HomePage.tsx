@@ -479,7 +479,7 @@ const submitCreate = useCallback(async () => {
             <div className="flex items-center gap-4 mt-3 text-sm text-gray-600">
               <button
                 onClick={() => onLike(p.id)}
-                className={`flex items-center gap-1 hover:text-blue-610 transition ${p.isLiked ? "text-blue-600 font-medium" : ""}`}
+                className={`flex items-center gap-1 hover:text-blue-600 transition ${p.isLiked ? "text-blue-600 font-medium" : ""}`}
               >
                 <span className={p.isLiked ? "scale-125" : ""}>👍</span> {p.likes}
               </button>
