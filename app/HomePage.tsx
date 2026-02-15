@@ -566,7 +566,7 @@ const submitCreate = useCallback(async () => {
   return (
     <>
       <ToastContainer />
-      <div className="min-h-screen bg-gray-65">
+      <div className="min-h-screen bg-gray-60">
         <div className="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)_300px] gap-6">
           {/* ---------- left ---------- */}
           <aside className="space-y-6">
