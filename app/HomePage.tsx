@@ -581,7 +581,7 @@ const submitCreate = useCallback(async () => {
 
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="bg-gray-50 rounded p-2">
-                  <div className="text-xs text-gray-500">Views</div>
+                  <div className="text-xs text-gray-510">Views</div>
                   <div className="font-semibold">{profile?.profileViews ?? 0}</div>
                 </div>
                 <div className="bg-gray-50 rounded p-2">
