@@ -4,21 +4,33 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { Types } from "mongoose";
 import { dbConnect } from "../../src/lib/ConnectDB";
 import { Post } from "../../src/models/posts";
-import { getSessionBySignedToken, destroySession } from "../../src/lib/session";
-
-const SESSION_COOKIE = "session_id";
-const AUTH_COOKIE = "auth_token";
+import User from "../../src/models/users";
+import { getSessionBySignedToken } from "../../src/lib/session";
 
 export async function GET() {
   try {
     await dbConnect();
     const posts = await Post.find({}).sort({ createdAt: -1 }).lean();
+    const userIdsRaw = Array.from(
+      new Set(
+        posts
+          .map((p: any) => (p?.user ? String(p.user) : ""))
+          .filter(Boolean)
+      )
+    );
+    const userIds = userIdsRaw.filter((id) => Types.ObjectId.isValid(id));
+    const users = userIds.length
+      ? await User.find({ _id: { $in: userIds } }).select("_id name").lean()
+      : [];
+    const nameById = new Map(users.map((u: any) => [String(u._id), u.name]));
 
     const normalized = posts.map((p: any) => ({
       _id: p._id,
-      user: p.user ?? null,
+      user: nameById.get(String(p.user)) ?? p.user ?? null,
+      userName: nameById.get(String(p.user)) ?? null,
       title: p.title ?? "",
       content: p.content ?? "",
       avatar: p.avatar ?? null,
@@ -40,14 +52,16 @@ export async function POST(req: Request) {
   try {
     await dbConnect();
 
-    const jar = cookies();
-    const signed = (await jar).get("session_id")?.value ?? null;
+    const jar = await cookies();
+    const signed = jar.get("session_id")?.value ?? null;
+    const deviceKey = req.headers.get("x-device-key") || jar.get("device_key")?.value || null;
 
     if (!signed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const session = await getSessionBySignedToken(signed);
+    // Pass device key during verification to avoid accidental session invalidation.
+    const session = await getSessionBySignedToken(signed, deviceKey);
 
     if (!session || !session.user) {
       const res = NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -56,38 +70,16 @@ export async function POST(req: Request) {
       return res;
     }
 
-    // OPTIONAL device key check (soft check, not hard fail)
-    const deviceKey =
-      req.headers.get("x-device-key") ||
-      (await jar).get("device_key")?.value ||
-      null;
-
-    if (
-      deviceKey &&
-      session.deviceKey &&
-      session.deviceKey !== deviceKey
-    ) {
-      // Do NOT destroy session here – just reject this request
-      return NextResponse.json(
-        { error: "Device mismatch" },
-        { status: 401 }
-      );
-    }
-
     const body = await req.json();
     const { title, content, avatar } = body;
 
     if (!title || !content) {
-      return NextResponse.json(
-        { error: "Missing title or content" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Missing title or content" }, { status: 400 });
     }
 
-    const userId =
-      typeof session.user === "object"
-        ? String((session.user as any)._id)
-        : String(session.user);
+    const userId = typeof session.user === "object" ? String((session.user as any)._id) : String(session.user);
+    const userDoc = await User.findById(userId).select("name").lean();
+    const userName = userDoc?.name ?? userId;
 
     const created = await Post.create({
       user: userId,
@@ -102,7 +94,8 @@ export async function POST(req: Request) {
       {
         post: {
           _id: created._id,
-          user: created.user,
+          user: userName,
+          userName,
           title: created.title,
           content: created.content,
           avatar: created.avatar,

@@ -64,9 +64,18 @@ export default function ClientApp() {
     let active = true;
     (async () => {
       try {
+        const headers = new Headers();
+        try {
+          if (typeof window !== "undefined") {
+            const deviceKey = localStorage.getItem("onelink_device_key");
+            if (deviceKey) headers.set("x-device-key", deviceKey);
+          }
+        } catch {}
+
         const res = await fetch("/api/auth/me", {
           cache: "no-store",
           credentials: "include",
+          headers,
         });
         const data = await res.json().catch(() => ({}));
         if (!active) return;

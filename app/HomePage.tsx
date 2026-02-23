@@ -1,5 +1,4 @@
 "use client";
-import { authFetch } from"./src/lib/authFetch";
 import React, { useCallback, useEffect, useMemo, useState, KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 
@@ -43,6 +42,11 @@ const roleToTitle = (role?: string) =>
 
 export async function safeJsonFetch(url: string, opts: RequestInit = {}) {
   const headers = new Headers(opts.headers || {});
+  const method = (opts.method || "GET").toUpperCase();
+
+  if (!headers.get("Content-Type") && method !== "GET") {
+    headers.set("Content-Type", "application/json");
+  }
 
   // ✅ add device-key header from localStorage
   try {
@@ -274,7 +278,7 @@ export default function HomePage() {
         const mapped: UIPost[] = postsFromApi.map((d: any, i: number) => ({
           mongoId: d._id ?? d.id ?? `temp-${i}`,
           id: i + 1,
-          user: d.user ?? d.author?.name ?? d.author ?? "Unknown",
+          user: d.userName ?? d.user ?? d.author?.name ?? d.author ?? "Unknown",
           avatar: d.avatar ?? d.author?.avatar ?? "",
           title: d.title ?? "",
           content: d.content ?? d.body ?? "",
@@ -343,7 +347,7 @@ const submitCreate = useCallback(async () => {
   setCreateOpen(false);
 
   try {
-    const createdRaw: any = await authFetch("/api/posts", {
+    const createdRaw: any = await safeJsonFetch("/api/posts", {
       method: "POST",
       body: JSON.stringify({
         user: profile.name,
@@ -362,16 +366,16 @@ const submitCreate = useCallback(async () => {
         {
           mongoId: created._id ?? created.id ?? `created-${Date.now()}`,
           id: optimistic.id,
-          user: created.user ?? profile.name,
+          user: created.userName ?? created.user ?? profile.name,
           avatar: created.avatar ?? profile.avatar,
           title: created.title ?? optimistic.title,
-          content: created.content ?? optimistic.content,
+          content: created.content ?? created.body ?? optimistic.content,
           timestamp: new Date(created.createdAt ?? Date.now()).toLocaleString(),
           likes: created.likes ?? 0,
-          comments: Array.isArray(created.comments) ? created.comments.length : 0,
+          comments: Array.isArray(created.comments) ? created.comments.length : typeof created.comments === "number" ? created.comments : 0,
           shares: created.shares ?? 0,
           isLiked: false,
-          createdAt: created.createdAt,
+          createdAt: created.createdAt ?? created.created_at,
         },
         ...others,
       ];
