@@ -1,12 +1,35 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import Link from "next/link";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-/* ======================================================
-   DEVICE KEY + API WRAPPER
-====================================================== */
+interface CurrentUser {
+  _id: string;
+  name: string;
+  username: string;
+  email: string;
+  role?: "student" | "recruiter" | "creator";
+  headline?: string;
+  about?: string;
+  avatar?: string;
+  createdAt?: string;
+}
+
+interface PostItem {
+  _id: string;
+  user?: string;
+  userName?: string | null;
+  title: string;
+  content: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface ApiResult<T> {
+  ok: boolean;
+  status: number;
+  data: T | null;
+}
 
 function getDeviceKey() {
   try {
@@ -18,69 +41,38 @@ function getDeviceKey() {
   }
 }
 
-async function apiFetch(url: string, opts: RequestInit = {}) {
-  const headers = new Headers(opts.headers || {});
-  const dk = getDeviceKey();
-  if (dk) headers.set("x-device-key", dk);
+async function apiFetch<T>(url: string, options: RequestInit = {}): Promise<ApiResult<T>> {
+  const headers = new Headers(options.headers || {});
+  const deviceKey = getDeviceKey();
+  if (deviceKey) headers.set("x-device-key", deviceKey);
 
-  if (!headers.get("Content-Type") && opts.method !== "GET") {
+  if (!headers.get("Content-Type") && (options.method || "GET").toUpperCase() !== "GET") {
     headers.set("Content-Type", "application/json");
   }
 
-  const res = await fetch(url, {
+  const response = await fetch(url, {
     credentials: "include",
-    ...opts,
+    cache: "no-store",
+    ...options,
     headers,
   });
 
-  let data = null;
-  try {
-    data = await res.json();
-  } catch {}
-
-  return { ok: res.ok, status: res.status, data };
+  const data = await response.json().catch(() => null);
+  return { ok: response.ok, status: response.status, data };
 }
 
-/* ======================================================
-   TYPES
-====================================================== */
-type UserResp = {
-  user: {
-    _id: string;
-    name: string;
-    username: string;
-    email: string;
-    headline?: string;
-    location?: string;
-    about?: string;
-    profileImage?: string;
-    coverImage?: string;
-  } | null;
-};
-
-type Post = {
-  _id: string;
-  title: string;
-  body: string;
-  createdAt?: string;
-  updatedAt?: string;
-};
-
-/* ======================================================
-   MAIN PAGE
-====================================================== */
-
-export default function ProfilePageClient() {
+export default function ProfilePage() {
   const router = useRouter();
 
-  const [user, setUser] = useState<UserResp["user"] | null>(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [statusMessage, setStatusMessage] = useState("");
 
-  const [posts, setPosts] = useState<Post[]>([]);
   const [postsLoading, setPostsLoading] = useState(false);
+  const [posts, setPosts] = useState<PostItem[]>([]);
 
-  /* ---------- Profile editing modal ---------- */
-  const [editing, setEditing] = useState(false);
+  const [showEditProfile, setShowEditProfile] = useState(false);
   const [editValues, setEditValues] = useState({
     name: "",
     username: "",
@@ -90,311 +82,425 @@ export default function ProfilePageClient() {
     profileImage: "",
   });
 
-  /* ---------- Password modal ---------- */
-  const [pwdOpen, setPwdOpen] = useState(false);
-  const [pwdState, setPwdState] = useState({
-    current: "",
-    next: "",
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
   });
 
-  /* ======================================================
-     FETCH CURRENT USER
-  ======================================================= */
+  const [editingPost, setEditingPost] = useState<PostItem | null>(null);
+  const [postForm, setPostForm] = useState({ title: "", content: "" });
+
+  const profileStats = useMemo(
+    () => [
+      { label: "Posts", value: posts.length },
+      { label: "Role", value: currentUser?.role ? currentUser.role.toUpperCase() : "MEMBER" },
+      { label: "Member Since", value: currentUser?.createdAt ? new Date(currentUser.createdAt).getFullYear() : "-" },
+    ],
+    [posts.length, currentUser?.role, currentUser?.createdAt]
+  );
 
   useEffect(() => {
+    if (!statusMessage) return;
+    const timer = setTimeout(() => setStatusMessage(""), 3000);
+    return () => clearTimeout(timer);
+  }, [statusMessage]);
+
+  useEffect(() => {
+    let active = true;
     (async () => {
-      const res = await apiFetch("/api/auth/me");
-      if (!res.ok || !res.data?.user) {
-        router.replace("/login?next=/profile");
+      const meRes = await apiFetch<{ user: CurrentUser | null; error?: string }>("/api/auth/me");
+      if (!active) return;
+
+      if (!meRes.ok || !meRes.data?.user) {
+        router.replace("/login?next=/?page=profile");
         return;
       }
-      setUser(res.data.user);
+
+      const user = meRes.data.user;
+      setCurrentUser(user);
+      setEditValues({
+        name: user.name || "",
+        username: user.username || "",
+        email: user.email || "",
+        headline: user.headline || "",
+        about: user.about || "",
+        profileImage: user.avatar || "",
+      });
       setLoading(false);
     })();
+
+    return () => {
+      active = false;
+    };
   }, [router]);
 
-  /* ======================================================
-     FETCH POSTS OF USER
-  ======================================================= */
-
   useEffect(() => {
-    if (!user?._id) return;
-    loadPosts();
-  }, [user]);
+    if (!currentUser?._id) return;
+    void loadPosts(currentUser._id);
+  }, [currentUser?._id]);
 
-  async function loadPosts() {
+  async function loadPosts(userId: string) {
     setPostsLoading(true);
-    const res = await apiFetch(`/api/posts?userId=${user?._id}`);
-    setPosts(res.data?.posts || []);
+    const res = await apiFetch<{ posts?: PostItem[]; error?: string }>(`/api/posts?userId=${encodeURIComponent(userId)}`);
+    if (res.ok) {
+      setPosts(Array.isArray(res.data?.posts) ? res.data!.posts : []);
+    } else {
+      setPosts([]);
+    }
     setPostsLoading(false);
   }
 
-  /* ======================================================
-     EDIT PROFILE HANDLERS
-  ======================================================= */
+  async function handleSaveProfile() {
+    if (!editValues.name.trim() || !editValues.username.trim() || !editValues.email.trim()) {
+      setStatusMessage("Name, username and email are required.");
+      return;
+    }
 
-  function startEdit() {
-    if (!user) return;
-    setEditValues({
-      name: user.name,
-      username: user.username,
-      email: user.email,
-      headline: user.headline || "",
-      about: user.about || "",
-      profileImage: user.profileImage || "",
-    });
-    setEditing(true);
-  }
-
-  async function saveProfile() {
-    const res = await apiFetch("/api/users", {
+    setSaving(true);
+    const res = await apiFetch<{ user?: CurrentUser; error?: string }>("/api/users", {
       method: "PUT",
       body: JSON.stringify(editValues),
     });
 
-    if (!res.ok) {
-      alert(res.data?.error || "Failed to update profile");
+    if (!res.ok || !res.data?.user) {
+      setSaving(false);
+      setStatusMessage(res.data?.error || "Failed to update profile.");
       return;
     }
-    setUser(res.data.user);
-    setEditing(false);
+
+    setCurrentUser(res.data.user);
+    setShowEditProfile(false);
+    setSaving(false);
+    setStatusMessage("Profile updated successfully.");
   }
 
-  /* ======================================================
-     CHANGE PASSWORD
-  ======================================================= */
+  async function handleChangePassword() {
+    if (!passwordForm.currentPassword || !passwordForm.newPassword) {
+      setStatusMessage("Both password fields are required.");
+      return;
+    }
+    if (passwordForm.newPassword.length < 6) {
+      setStatusMessage("New password must be at least 6 characters.");
+      return;
+    }
 
-  async function changePassword() {
-    const res = await apiFetch("/api/auth/change-password", {
-      method: "POST",
-      body: JSON.stringify({
-        currentPassword: pwdState.current,
-        newPassword: pwdState.next,
-      }),
+    setSaving(true);
+    const res = await apiFetch<{ ok?: boolean; error?: string }>("/api/users", {
+      method: "PUT",
+      body: JSON.stringify(passwordForm),
+    });
+
+    setSaving(false);
+    if (!res.ok) {
+      setStatusMessage(res.data?.error || "Failed to change password.");
+      return;
+    }
+
+    setShowChangePassword(false);
+    setPasswordForm({ currentPassword: "", newPassword: "" });
+    alert("Password changed. Please sign in again.");
+    router.push("/login");
+  }
+
+  async function handleDeleteAccount() {
+    if (!window.confirm("Delete your account permanently?")) return;
+
+    const res = await apiFetch<{ ok?: boolean; error?: string }>("/api/users", { method: "DELETE" });
+    if (!res.ok) {
+      setStatusMessage(res.data?.error || "Failed to delete account.");
+      return;
+    }
+    router.push("/login");
+  }
+
+  function openEditPostModal(post: PostItem) {
+    setEditingPost(post);
+    setPostForm({ title: post.title || "", content: post.content || "" });
+  }
+
+  async function handleSavePost() {
+    if (!editingPost) return;
+    if (!postForm.title.trim() || !postForm.content.trim()) {
+      setStatusMessage("Post title and content are required.");
+      return;
+    }
+
+    const res = await apiFetch<{ post?: PostItem; error?: string }>(`/api/posts/${editingPost._id}`, {
+      method: "PUT",
+      body: JSON.stringify(postForm),
     });
 
     if (!res.ok) {
-      alert(res.data?.error || "Failed to change password");
+      setStatusMessage(res.data?.error || "Failed to update post.");
       return;
     }
 
-    alert("Password updated successfully");
-    setPwdOpen(false);
-    setPwdState({ current: "", next: "" });
+    setPosts((prev) =>
+      prev.map((item) => (item._id === editingPost._id ? { ...item, title: postForm.title, content: postForm.content } : item))
+    );
+    setEditingPost(null);
+    setStatusMessage("Post updated.");
   }
 
-  /* ======================================================
-     DELETE ACCOUNT
-  ======================================================= */
+  async function handleDeletePost(postId: string) {
+    if (!window.confirm("Delete this post?")) return;
 
-  async function deleteAccount() {
-    if (!confirm("This cannot be undone. Delete your account?")) return;
+    const res = await apiFetch<{ ok?: boolean; error?: string }>(`/api/posts/${postId}`, {
+      method: "DELETE",
+    });
 
-    const res = await apiFetch("/api/users", { method: "DELETE" });
-    if (res.ok) {
-      router.push("/login");
-    } else {
-      alert(res.data?.error || "Failed to delete account");
+    if (!res.ok) {
+      setStatusMessage(res.data?.error || "Failed to delete post.");
+      return;
     }
+
+    setPosts((prev) => prev.filter((item) => item._id !== postId));
+    setStatusMessage("Post deleted.");
   }
 
-  /* ======================================================
-     RENDER
-  ======================================================= */
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center text-lg text-gray-700">Loading profile...</div>;
+  }
 
-  if (loading)
-    return <div className="p-10 text-center text-lg">Loading profile…</div>;
-
-  if (!user)
-    return <div className="p-10 text-center text-lg">Not authenticated.</div>;
+  if (!currentUser) return null;
 
   return (
-    <div className="min-h-screen bg-gray-100 pb-20">
+    <div className="min-h-screen bg-gray-100 pt-24 pb-10">
+      <div className="max-w-5xl mx-auto px-4">
+        <section className="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
+          <div className="h-40 bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500" />
+          <div className="px-6 pb-6 -mt-14">
+            <div className="w-28 h-28 rounded-full border-4 border-white bg-blue-600 text-white text-4xl font-bold flex items-center justify-center overflow-hidden">
+              {currentUser.avatar ? (
+                <img src={currentUser.avatar} alt={currentUser.name} className="w-full h-full object-cover" />
+              ) : (
+                currentUser.name.charAt(0).toUpperCase()
+              )}
+            </div>
 
-      {/* ======================================================
-           COVER + HEADER CARD
-      ======================================================= */}
-      <div className="relative w-full h-52 bg-gradient-to-br from-indigo-500 to-blue-600 shadow-lg">
-        {user.coverImage && (
-          <img
-            src={user.coverImage}
-            className="w-full h-full object-cover opacity-90"
-          />
-        )}
-      </div>
+            <div className="mt-4 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">{currentUser.name}</h1>
+                <p className="text-gray-600">@{currentUser.username}</p>
+                <p className="mt-2 text-gray-800">{currentUser.headline || "Add a professional headline."}</p>
+                <p className="mt-1 text-sm text-gray-600">{currentUser.email}</p>
+              </div>
 
-      <div className="max-w-4xl mx-auto">
-        <div className="-mt-16 bg-white rounded-xl shadow p-6 flex gap-6 items-center relative">
-          <img
-            src={user.profileImage || "/api/placeholder/200/200"}
-            className="w-32 h-32 rounded-full border-4 border-white shadow object-cover"
-          />
-
-          <div className="flex-1">
-            <h1 className="text-3xl font-bold text-gray-900">{user.name}</h1>
-            <p className="text-gray-500">@{user.username}</p>
-            <p className="mt-2 text-gray-700">{user.headline}</p>
-            {user.location && (
-              <p className="text-sm text-gray-500 mt-1">{user.location}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <button
-              onClick={startEdit}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700"
-            >
-              Edit Profile
-            </button>
-            <button
-              onClick={() => setPwdOpen(true)}
-              className="px-4 py-2 bg-gray-200 rounded-lg shadow hover:bg-gray-300"
-            >
-              Change Password
-            </button>
-            <button
-              onClick={deleteAccount}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg shadow hover:bg-red-700"
-            >
-              Delete Account
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* ABOUT */}
-      <div className="max-w-4xl mx-auto mt-6 bg-white shadow rounded-xl p-6">
-        <h3 className="text-xl font-semibold mb-2">About</h3>
-        <p className="text-gray-700 leading-relaxed">{user.about || "No bio added yet."}</p>
-      </div>
-
-      {/* ======================================================
-           POSTS SECTION
-      ======================================================= */}
-      <div className="max-w-4xl mx-auto mt-6 bg-white shadow rounded-xl p-6">
-        <h3 className="text-xl font-semibold mb-4">Your Posts</h3>
-
-        {postsLoading && <p>Loading posts…</p>}
-        {!postsLoading && posts.length === 0 && (
-          <p className="text-gray-500">You haven't posted anything yet.</p>
-        )}
-
-        <div className="space-y-4">
-          {posts.map((p) => (
-            <div
-              key={p._id}
-              className="border rounded-lg p-4 hover:shadow transition"
-            >
-              <h4 className="font-semibold text-lg">{p.title}</h4>
-              <p className="text-gray-700 mt-1">{p.body}</p>
-              <p className="text-xs text-gray-400 mt-2">
-                {new Date(p.updatedAt || p.createdAt || "").toLocaleString()}
-              </p>
-
-              <div className="mt-2 flex gap-3">
+              <div className="flex flex-wrap gap-2">
                 <button
-                  onClick={() => router.push(`/posts/${p._id}/edit`)}
-                  className="text-blue-600 text-sm hover:underline"
+                  onClick={() => setShowEditProfile(true)}
+                  className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
                 >
-                  Edit
+                  Edit Profile
                 </button>
                 <button
-                  onClick={() => deleteAccount()}
-                  className="text-red-600 text-sm hover:underline"
+                  onClick={() => setShowChangePassword(true)}
+                  className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
                 >
-                  Delete
+                  Change Password
+                </button>
+                <button
+                  onClick={handleDeleteAccount}
+                  className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+                >
+                  Delete Account
                 </button>
               </div>
             </div>
+          </div>
+        </section>
+
+        {statusMessage && (
+          <div className="mt-4 bg-blue-50 border border-blue-100 text-blue-700 rounded-lg px-4 py-3 text-sm">{statusMessage}</div>
+        )}
+
+        <section className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+          {profileStats.map((item) => (
+            <div key={item.label} className="bg-white rounded-lg border border-gray-200 p-4">
+              <p className="text-sm text-gray-500">{item.label}</p>
+              <p className="text-xl font-bold text-gray-900 mt-1">{String(item.value)}</p>
+            </div>
           ))}
-        </div>
+        </section>
+
+        <section className="mt-6 bg-white rounded-xl border border-gray-200 shadow p-6">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xl font-semibold text-gray-900">About</h2>
+            <button
+              onClick={() => setShowEditProfile(true)}
+              className="text-sm text-blue-600 hover:text-blue-700"
+            >
+              Edit
+            </button>
+          </div>
+          <p className="text-gray-700 whitespace-pre-wrap">{currentUser.about || "No about section yet."}</p>
+        </section>
+
+        <section className="mt-6 bg-white rounded-xl border border-gray-200 shadow p-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Your Posts</h2>
+
+          {postsLoading && <p className="text-gray-600">Loading posts...</p>}
+          {!postsLoading && posts.length === 0 && <p className="text-gray-500">No posts found.</p>}
+
+          <div className="space-y-4">
+            {posts.map((post) => (
+              <article key={post._id} className="border border-gray-200 rounded-lg p-4">
+                <h3 className="font-semibold text-lg text-gray-900">{post.title}</h3>
+                <p className="text-gray-700 mt-2 whitespace-pre-wrap">{post.content}</p>
+                <p className="text-xs text-gray-500 mt-2">
+                  Updated {new Date(post.updatedAt || post.createdAt || Date.now()).toLocaleString()}
+                </p>
+                <div className="mt-3 flex gap-3">
+                  <button
+                    onClick={() => openEditPostModal(post)}
+                    className="text-blue-600 hover:text-blue-700 text-sm"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDeletePost(post._id)}
+                    className="text-red-600 hover:text-red-700 text-sm"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
       </div>
 
-      {/* ======================================================
-           EDIT PROFILE MODAL
-      ======================================================= */}
-      {editing && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-50">
-          <div className="bg-white p-6 rounded-xl shadow max-w-xl w-full">
-            <h2 className="text-xl font-semibold mb-4">Edit Profile</h2>
-
-            <div className="grid grid-cols-1 gap-3">
-              {Object.keys(editValues).map((key) => (
-                <label key={key} className="text-sm font-medium">
-                  {key.replace(/([A-Z])/g, " $1")}
-                  <input
-                    className="w-full border mt-1 rounded px-2 py-1"
-                    value={(editValues as any)[key]}
-                    onChange={(e) =>
-                      setEditValues((s) => ({ ...s, [key]: e.target.value }))
-                    }
-                  />
-                </label>
-              ))}
+      {showEditProfile && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
+          <div className="w-full max-w-xl bg-white rounded-xl shadow-xl p-6">
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">Edit Profile</h3>
+            <div className="space-y-3">
+              <input
+                className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                placeholder="Name"
+                value={editValues.name}
+                onChange={(e) => setEditValues((prev) => ({ ...prev, name: e.target.value }))}
+              />
+              <input
+                className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                placeholder="Username"
+                value={editValues.username}
+                onChange={(e) => setEditValues((prev) => ({ ...prev, username: e.target.value.toLowerCase() }))}
+              />
+              <input
+                className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                placeholder="Email"
+                value={editValues.email}
+                onChange={(e) => setEditValues((prev) => ({ ...prev, email: e.target.value.toLowerCase() }))}
+              />
+              <input
+                className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                placeholder="Headline"
+                value={editValues.headline}
+                onChange={(e) => setEditValues((prev) => ({ ...prev, headline: e.target.value }))}
+              />
+              <input
+                className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                placeholder="Profile Image URL"
+                value={editValues.profileImage}
+                onChange={(e) => setEditValues((prev) => ({ ...prev, profileImage: e.target.value }))}
+              />
+              <textarea
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 min-h-28"
+                placeholder="About"
+                value={editValues.about}
+                onChange={(e) => setEditValues((prev) => ({ ...prev, about: e.target.value }))}
+              />
             </div>
-
-            <div className="mt-4 flex justify-end gap-2">
+            <div className="mt-5 flex justify-end gap-2">
               <button
-                onClick={() => setEditing(false)}
-                className="px-4 py-2 border rounded"
+                onClick={() => setShowEditProfile(false)}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
-                onClick={saveProfile}
-                className="px-4 py-2 bg-blue-600 text-white rounded"
+                onClick={handleSaveProfile}
+                disabled={saving}
+                className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
               >
-                Save Changes
+                Save
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ======================================================
-           PASSWORD MODAL
-      ======================================================= */}
-      {pwdOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-50">
-          <div className="bg-white p-6 rounded-xl shadow max-w-md w-full">
-            <h2 className="text-xl font-semibold mb-4">Change Password</h2>
-
-            <label className="block text-sm">
-              Current Password
+      {showChangePassword && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
+          <div className="w-full max-w-md bg-white rounded-xl shadow-xl p-6">
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">Change Password</h3>
+            <div className="space-y-3">
               <input
                 type="password"
-                className="w-full border rounded mt-1 px-2 py-1"
-                value={pwdState.current}
-                onChange={(e) =>
-                  setPwdState((s) => ({ ...s, current: e.target.value }))
-                }
+                className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                placeholder="Current Password"
+                value={passwordForm.currentPassword}
+                onChange={(e) => setPasswordForm((prev) => ({ ...prev, currentPassword: e.target.value }))}
               />
-            </label>
-
-            <label className="block text-sm mt-3">
-              New Password
               <input
                 type="password"
-                className="w-full border rounded mt-1 px-2 py-1"
-                value={pwdState.next}
-                onChange={(e) =>
-                  setPwdState((s) => ({ ...s, next: e.target.value }))
-                }
+                className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                placeholder="New Password"
+                value={passwordForm.newPassword}
+                onChange={(e) => setPasswordForm((prev) => ({ ...prev, newPassword: e.target.value }))}
               />
-            </label>
-
-            <div className="mt-4 flex justify-end gap-2">
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
               <button
-                onClick={() => setPwdOpen(false)}
-                className="px-4 py-2 border rounded"
+                onClick={() => setShowChangePassword(false)}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
-                onClick={changePassword}
-                className="px-4 py-2 bg-blue-600 text-white rounded"
+                onClick={handleChangePassword}
+                disabled={saving}
+                className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
               >
                 Update
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingPost && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
+          <div className="w-full max-w-2xl bg-white rounded-xl shadow-xl p-6">
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">Edit Post</h3>
+            <div className="space-y-3">
+              <input
+                className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                placeholder="Post title"
+                value={postForm.title}
+                onChange={(e) => setPostForm((prev) => ({ ...prev, title: e.target.value }))}
+              />
+              <textarea
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 min-h-36"
+                placeholder="Post content"
+                value={postForm.content}
+                onChange={(e) => setPostForm((prev) => ({ ...prev, content: e.target.value }))}
+              />
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setEditingPost(null)}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSavePost}
+                className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+              >
+                Save Post
               </button>
             </div>
           </div>

@@ -10,11 +10,19 @@ import { Post } from "../../src/models/posts";
 import User from "../../src/models/users";
 import { getSessionBySignedToken } from "../../src/lib/session";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     await dbConnect();
-    const posts = await Post.find({}).sort({ createdAt: -1 }).lean();
-    const userIdsRaw = Array.from(
+    const { searchParams } = new URL(req.url);
+    const userId = searchParams.get("userId");
+
+    const filter: Record<string, unknown> = {};
+    if (userId) {
+      filter.user = userId;
+    }
+
+    const posts = await Post.find(filter).sort({ createdAt: -1 }).lean();
+    const userIdsRaw: string[] = Array.from(
       new Set(
         posts
           .map((p: any) => (p?.user ? String(p.user) : ""))
@@ -22,8 +30,9 @@ export async function GET() {
       )
     );
     const userIds = userIdsRaw.filter((id) => Types.ObjectId.isValid(id));
-    const users = userIds.length
-      ? await User.find({ _id: { $in: userIds } }).select("_id name").lean()
+    const objectIds = userIds.map((id) => new Types.ObjectId(id));
+    const users = objectIds.length
+      ? await User.find({ _id: { $in: objectIds } }).select("_id name").lean()
       : [];
     const nameById = new Map(users.map((u: any) => [String(u._id), u.name]));
 
@@ -33,6 +42,7 @@ export async function GET() {
       userName: nameById.get(String(p.user)) ?? null,
       title: p.title ?? "",
       content: p.content ?? "",
+      body: p.content ?? "",
       avatar: p.avatar ?? null,
       likes: typeof p.likes === "number" ? p.likes : 0,
       comments: Array.isArray(p.comments) ? p.comments : [],

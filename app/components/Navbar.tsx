@@ -1,16 +1,27 @@
 "use client";
 
-import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
-import { Search, Home, Users, Briefcase, MessageSquare, Bell, Menu, X, Plus, ChevronDown, User, Settings, LogOut } from "lucide-react";
-
-// ============================================================================
-// TYPES
-// ============================================================================
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Bell,
+  Briefcase,
+  ChevronDown,
+  Home,
+  LogOut,
+  Menu,
+  MessageSquare,
+  Plus,
+  Search,
+  Settings,
+  User,
+  Users,
+  X,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface NavItem {
   key: string;
-  icon: React.ElementType;
   label: string;
+  icon: React.ElementType;
   badge?: number;
 }
 
@@ -30,344 +41,86 @@ interface NavbarProps {
   userInitial?: string;
 }
 
+interface SearchUser {
+  _id?: string;
+  id?: string;
+  name?: string;
+  username?: string;
+  email?: string;
+  headline?: string | null;
+  role?: string;
+}
 
-// ============================================================================
-// CONSTANTS
-// ============================================================================
+interface SearchInstitution {
+  _id?: string;
+  name?: string;
+  institutionType?: "college" | "school";
+  city?: string;
+  state?: string;
+}
+
+type SearchResult =
+  | {
+      type: "user";
+      id: string;
+      title: string;
+      subtitle: string;
+      meta: string;
+    }
+  | {
+      type: "college" | "school";
+      id: string;
+      title: string;
+      subtitle: string;
+      meta: string;
+    };
 
 const NAV_ITEMS: NavItem[] = [
-  { key: "home", icon: Home, label: "Home" },
-  { key: "network", icon: Users, label: "Network", badge: 12 },
-  { key: "jobs", icon: Briefcase, label: "Jobs" },
-  { key: "chat", icon: MessageSquare, label: "Messages", badge: 5 },
-  { key: "notifications", icon: Bell, label: "Alerts", badge: 3 },
+  { key: "home", label: "Home", icon: Home },
+  { key: "network", label: "Network", icon: Users },
+  { key: "jobs", label: "Find", icon: Briefcase },
+  { key: "chat", label: "Messages", icon: MessageSquare },
+  { key: "notifications", label: "Alerts", icon: Bell },
 ];
 
-const SEARCH_SUGGESTIONS = [
-  "React Hooks Tutorial",
-  "JavaScript ES6",
-  "Frontend Jobs",
-  "UI/UX Design",
-  "TypeScript Tips",
+const SEARCH_HINTS = [
+  "Search users",
+  "Search colleges",
+  "Search schools",
 ];
 
-// ============================================================================
-// CUSTOM HOOKS
-// ============================================================================
+function getDeviceKey() {
+  try {
+    if (typeof window === "undefined") return "";
+    return localStorage.getItem("onelink_device_key") || "";
+  } catch {
+    return "";
+  }
+}
 
-const useClickOutside = (callback: () => void) => {
-  const ref = useRef<HTMLDivElement>(null);
+function useDebounce<T>(value: T, delayMs: number) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(timer);
+  }, [value, delayMs]);
+  return debounced;
+}
+
+function useClickOutside<T extends HTMLElement>(onOutside: () => void) {
+  const ref = useRef<T>(null);
 
   useEffect(() => {
-    const handleClick = (event: MouseEvent) => {
-      if (ref.current && !ref.current.contains(event.target as Node)) {
-        callback();
-      }
+    const handler = (event: MouseEvent) => {
+      if (!ref.current) return;
+      if (!ref.current.contains(event.target as Node)) onOutside();
     };
-
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [callback]);
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [onOutside]);
 
   return ref;
-};
-
-const useDebounce = <T,>(value: T, delay: number): T => {
-  const [debouncedValue, setDebouncedValue] = useState<T>(value);
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [value, delay]);
-
-  return debouncedValue;
-};
-
-// ============================================================================
-// MEMOIZED COMPONENTS
-// ============================================================================
-
-const Logo = React.memo<{ onClick: () => void }>(({ onClick }) => (
-  <button
-    onClick={onClick}
-    className="flex items-center gap-1 hover:opacity-90 transition-opacity"
-    aria-label="Go to home"
-  >
-    <div className="w-9 h-9 bg-gradient-to-br rounded-lg flex items-center justify-center shadow-lg">
-   <img src="/logo1.png" alt="logo" width={90} height={60} />
-    </div>
-    <span className="text-zinc-950 font-bold text-lg">
-      OneLink
-    </span>
-  </button>
-));
-Logo.displayName = 'Logo';
-
-interface SearchBarProps {
-  value: string;
-  onChange: (value: string) => void;
-  onClose?: () => void;
-  autoFocus?: boolean;
 }
-
-const SearchBar = React.memo<SearchBarProps>(({ value, onChange, onClose, autoFocus }) => {
-  const [isFocused, setIsFocused] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  
-  const debouncedValue = useDebounce(value, 150);
-  
-  const filteredSuggestions = useMemo(() => {
-    if (!debouncedValue.trim()) return SEARCH_SUGGESTIONS;
-    return SEARCH_SUGGESTIONS.filter(s => 
-      s.toLowerCase().includes(debouncedValue.toLowerCase())
-    );
-  }, [debouncedValue]);
-
-  const showSuggestions = isFocused && filteredSuggestions.length > 0;
-
-  const handleSuggestionClick = useCallback((suggestion: string) => {
-    onChange(suggestion);
-    inputRef.current?.focus();
-  }, [onChange]);
-
-  const handleClear = useCallback(() => {
-    onChange('');
-    inputRef.current?.focus();
-  }, [onChange]);
-
-  return (
-    <div className="relative w-full left-25">
-      <div className={`relative transition-all duration-200 ${isFocused ? 'scale-[1.01]' : ''}`}>
-        {/* <Search className={`left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-all duration-200 ${
-          isFocused ? 'text-blue-600 scale-110' : 'text-gray-500'
-        }`} /> */}
-       <input
-    ref={inputRef}
-    type="text"
-    placeholder="Search destinations, guides..."
-    value={value}
-    onChange={(e) => onChange(e.target.value)}
-    onFocus={() => setIsFocused(true)}
-    onBlur={() => setTimeout(() => setIsFocused(false), 200)}
-    autoFocus={autoFocus}
-    className={`w-full backdrop-blur-md bg-gray-50 border border-gray-300 dark:border-slate-600
-      px-10 py-3 rounded-2xl text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400
-      transition-all duration-300 ease-in-out outline-none
-      ${isFocused 
-        ? 'ring-1 ring-blue-500/70 shadow-[0_0_20px_rgba(37,99,235,0.25)] scale-[1.02]'
-        : 'hover:ring-1 hover:ring-gray-300 dark:hover:ring-slate-600'
-      }`}
-  />
-        {value && (
-          <button
-            onClick={handleClear}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded-full p-1 transition-all"
-            aria-label="Clear search"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        )}
-      </div>
-
-      {showSuggestions && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden z-50">
-          <div className="p-2 space-y-1">
-            <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase">
-              Suggested Searches
-            </div>
-            {filteredSuggestions.map((item) => (
-              <button
-                key={item}
-                className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 rounded-lg text-left transition-colors group"
-                onClick={() => handleSuggestionClick(item)}
-              >
-                <Search className="w-4 h-4 text-gray-400 group-hover:text-blue-600 transition-colors" />
-                <span className="text-sm text-gray-700 group-hover:text-gray-900">{item}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      
-      {onClose && (
-        <button
-          onClick={onClose}
-          className="absolute -right-10 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 p-2"
-          aria-label="Close search"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      )}
-    </div>
-  );
-});
-SearchBar.displayName = 'SearchBar';
-
-interface NavButtonProps {
-  item: NavItem;
-  isActive: boolean;
-  onClick: () => void;
-  isMobile?: boolean;
-}
-
-const NavButton = React.memo<NavButtonProps>(({ item, isActive, onClick, isMobile }) => {
-  const Icon = item.icon;
-
-  const badgeContent = useMemo(() => 
-    item.badge && item.badge > 9 ? '9+' : item.badge?.toString(), 
-  [item.badge]);
-
-  if (isMobile) {
-    return (
-      <button
-        onClick={onClick}
-        className={`flex items-center justify-between w-full px-4 py-3 rounded-xl text-left transition-all ${
-          isActive 
-            ? "bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-600" 
-            : "text-gray-700 hover:bg-gray-50"
-        }`}
-      >
-        <div className="flex items-center gap-3">
-          <Icon className="w-5 h-5" />
-          <span className="font-medium">{item.label}</span>
-        </div>
-        {item.badge && (
-          <span className="bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-            {badgeContent}
-          </span>
-        )}
-      </button>
-    );
-  }
-
-  return (
-    <button
-      onClick={onClick}
-      className={`relative flex flex-col items-center px-3 py-2 rounded-lg min-w-[70px] transition-all group ${
-        isActive ? "text-gray-900" : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-      }`}
-    >
-      <div className="relative">
-        <Icon className={`w-6 h-6 mb-1 transition-transform ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
-        {item.badge && (
-          <span className="absolute -top-1 -right-2 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center animate-pulse">
-            {badgeContent}
-          </span>
-        )}
-      </div>
-      <span className="text-xs font-medium">{item.label}</span>
-      {isActive && (
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-1 bg-gray-900 rounded-t-full" />
-      )}
-    </button>
-  );
-});
-NavButton.displayName = 'NavButton';
-
-interface UserDropdownProps {
-  userInitial: string;
-  userName?: string;
-  onProfileClick: () => void;
-  onSettingsClick: () => void;
-  onLogoutClick: () => void;
-}
-
-
-const UserDropdown = React.memo<UserDropdownProps>(({ 
-  userInitial, 
-  userName, 
-  onProfileClick, 
-  onSettingsClick, 
-  onLogoutClick 
-}) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useClickOutside(() => setIsOpen(false));
-
-  const handleAction = useCallback((action: () => void) => {
-    action();
-    setIsOpen(false);
-  }, []);
-
-  const toggleDropdown = useCallback(() => setIsOpen(prev => !prev), []);
-
-  return (
-    <div className="relative" ref={dropdownRef}>
-      <button
-        onClick={toggleDropdown}
-        className="flex items-center gap-2 p-1 rounded-full hover:bg-gray-100 transition-colors"
-        aria-expanded={isOpen}
-        aria-label="User menu"
-      >
-        <div className="w-9 h-9 bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-md">
-          {userInitial}
-        </div>
-        <ChevronDown className={`w-4 h-4 text-gray-600 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
-
-
-      
-
-      {isOpen && (
-        <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden z-50 animate-fade-in">
-          {/* User Info Header */}
-          <div className="px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-100">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold">
-                {userInitial}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-gray-900 text-sm truncate">
-                  {userName || 'User'}
-                </div>
-                <div className="text-xs text-gray-600">View Profile</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Menu Items */}
-          <div className="py-2">
-            <button
-              onClick={() => handleAction(onProfileClick)}
-              className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left"
-            >
-              <User className="w-4 h-4 text-gray-600" />
-              <span className="text-sm text-gray-700">My Profile</span>
-            </button>
-            
-            <button
-              onClick={() => handleAction(onSettingsClick)}
-              className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left"
-            >
-              <Settings className="w-4 h-4 text-gray-600" />
-              <span className="text-sm text-gray-700">Settings</span>
-            </button>
-          </div>
-
-          {/* Logout */}
-          <div className="border-t border-gray-100">
-            <button
-              onClick={() => handleAction(onLogoutClick)}
-              className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 transition-colors text-left"
-            >
-              <LogOut className="w-4 h-4 text-red-600" />
-              <span className="text-sm text-red-600 font-medium">Logout</span>
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-});
-UserDropdown.displayName = 'UserDropdown';
-
-// ============================================================================
-// MAIN NAVBAR
-// ============================================================================
 
 const Navbar: React.FC<NavbarProps> = ({
   onPageChange,
@@ -378,162 +131,546 @@ const Navbar: React.FC<NavbarProps> = ({
   userName = "User",
   userInitial = "U",
 }) => {
+  const router = useRouter();
+
   const [searchQuery, setSearchQuery] = useState("");
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searchError, setSearchError] = useState("");
 
-  // Debounced search to reduce unnecessary API calls
-  const debouncedSearchQuery = useDebounce(searchQuery, 300);
-  
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useClickOutside<HTMLDivElement>(() => setDropdownOpen(false));
+
+  const debouncedQuery = useDebounce(searchQuery, 300);
+
+  const navItems = useMemo(
+    () =>
+      NAV_ITEMS.map((item) => {
+        if (item.key === "network" && userStats?.totalConnections) {
+          return {
+            ...item,
+            badge: userStats.totalConnections > 99 ? 99 : userStats.totalConnections,
+          };
+        }
+        return item;
+      }),
+    [userStats?.totalConnections]
+  );
+
+  const groupedResults = useMemo(() => {
+    return {
+      users: searchResults.filter((r) => r.type === "user"),
+      colleges: searchResults.filter((r) => r.type === "college"),
+      schools: searchResults.filter((r) => r.type === "school"),
+    };
+  }, [searchResults]);
+
   useEffect(() => {
-    onSearch(debouncedSearchQuery);
-  }, [debouncedSearchQuery, onSearch]);
+    onSearch(debouncedQuery);
+  }, [debouncedQuery, onSearch]);
 
-  const handleSearch = useCallback((query: string) => {
-    setSearchQuery(query);
+  useEffect(() => {
+    const q = debouncedQuery.trim().toLowerCase();
+    if (q.length < 2) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      setSearchError("");
+      return;
+    }
+
+    let active = true;
+    (async () => {
+      setSearchLoading(true);
+      setSearchError("");
+
+      try {
+        const headers = new Headers();
+        const deviceKey = getDeviceKey();
+        if (deviceKey) headers.set("x-device-key", deviceKey);
+
+        const [usersRes, instRes] = await Promise.all([
+          fetch("/api/users", {
+            method: "GET",
+            credentials: "include",
+            cache: "no-store",
+            headers,
+          }),
+          fetch("/api/institutions", {
+            method: "GET",
+            credentials: "include",
+            cache: "no-store",
+            headers,
+          }),
+        ]);
+
+        const usersJson = await usersRes.json().catch(() => ({}));
+        const instJson = await instRes.json().catch(() => ({}));
+        if (!active) return;
+
+        const users: SearchUser[] = Array.isArray(usersJson?.users) ? usersJson.users : [];
+        const institutions: SearchInstitution[] = Array.isArray(instJson?.institutions) ? instJson.institutions : [];
+
+        const userMatches: SearchResult[] = users
+          .filter((u) => {
+            const hay = [
+              u.name || "",
+              u.username || "",
+              u.email || "",
+              u.headline || "",
+              u.role || "",
+            ]
+              .join(" ")
+              .toLowerCase();
+            return hay.includes(q);
+          })
+          .slice(0, 6)
+          .map((u, idx) => ({
+            type: "user" as const,
+            id: String(u._id || u.id || `u-${idx}`),
+            title: u.name || u.username || "Unknown User",
+            subtitle: u.headline || `@${u.username || "user"}`,
+            meta: u.role || "member",
+          }));
+
+        const institutionMatches: SearchResult[] = institutions
+          .filter((i) => {
+            const hay = [
+              i.name || "",
+              i.institutionType || "",
+              i.city || "",
+              i.state || "",
+            ]
+              .join(" ")
+              .toLowerCase();
+            return hay.includes(q);
+          })
+          .slice(0, 8)
+          .map((i, idx) => ({
+            type: i.institutionType === "school" ? "school" : "college",
+            id: String(i._id || `i-${idx}`),
+            title: i.name || "Unnamed Institution",
+            subtitle: [i.city, i.state].filter(Boolean).join(", ") || "Location unavailable",
+            meta: i.institutionType === "school" ? "School" : "College",
+          }));
+
+        setSearchResults([...userMatches, ...institutionMatches]);
+      } catch {
+        if (!active) return;
+        setSearchError("Search failed. Please try again.");
+        setSearchResults([]);
+      } finally {
+        if (active) setSearchLoading(false);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [debouncedQuery]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+      const inInput = target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable;
+
+      if (event.key === "/" && !inInput) {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+      }
+
+      if (event.key === "Escape") {
+        setMobileMenuOpen(false);
+        setMobileSearchOpen(false);
+        setDropdownOpen(false);
+        setSearchFocused(false);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const handlePageChange = useCallback((page: string) => {
-    onPageChange(page);
-    setIsMobileMenuOpen(false);
-  }, [onPageChange]);
+  const handlePage = useCallback(
+    (page: string) => {
+      onPageChange(page);
+      setMobileMenuOpen(false);
+      setMobileSearchOpen(false);
+      setDropdownOpen(false);
+    },
+    [onPageChange]
+  );
 
   const handleLogout = useCallback(async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-      window.location.href = '/login';
-    } catch (error) {
-      console.error('Logout error:', error);
-      alert('Logout failed. Please try again.');
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+      window.location.href = "/login";
+    } catch {
+      alert("Logout failed. Try again.");
     }
   }, []);
 
-  const handleSettings = useCallback(() => {
-    alert('Settings coming soon!');
-  }, []);
+  const handleSearchResultClick = (item: SearchResult) => {
+    setSearchQuery(item.title);
+    setSearchFocused(false);
+    setMobileSearchOpen(false);
 
-  const toggleMobileMenu = useCallback(() => {
-    setIsMobileMenuOpen(prev => !prev);
-  }, []);
+    if (item.type === "user") {
+      handlePage("network");
+      return;
+    }
+    handlePage("jobs");
+  };
 
-  const toggleSearchExpanded = useCallback(() => {
-    setIsSearchExpanded(prev => !prev);
-  }, []);
+  const renderSearchDropdown = () => {
+    const hasQuery = debouncedQuery.trim().length >= 2;
+    const hasResults = searchResults.length > 0;
+    const showDropdown = searchFocused && (hasQuery || searchQuery.trim().length === 0);
 
-  // Memoized navigation items to prevent unnecessary re-renders
-  const navItems = useMemo(() => 
-    NAV_ITEMS.map((item) => (
-      <NavButton
-        key={item.key}
-        item={item}
-        isActive={currentPage === item.key}
-        onClick={() => handlePageChange(item.key)}
-      />
-    )), [currentPage, handlePageChange]
-  );
+    if (!showDropdown) return null;
 
-  const mobileNavItems = useMemo(() => 
-    NAV_ITEMS.map((item) => (
-      <NavButton
-        key={item.key}
-        item={item}
-        isActive={currentPage === item.key}
-        onClick={() => handlePageChange(item.key)}
-        isMobile
-      />
-    )), [currentPage, handlePageChange]
-  );
-
-  return (
-    <nav className="fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-sm z-50">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center gap-3 h-16 px-4">
-          {/* Left Section */}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={toggleMobileMenu}
-              className="lg:hidden p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all"
-              aria-label="Toggle menu"
-            >
-              {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </button>
-            <Logo onClick={() => handlePageChange("home")} />
-            
-            {/* Desktop Search */}
-            <div className="hidden md:block w-64">
-              <SearchBar value={searchQuery} onChange={handleSearch} />
-            </div>
-          </div>
-
-          {/* Center Navigation */}
-          <div className="hidden lg:flex items-center justify-center gap-1 flex-1">
-            {navItems}
-          </div>
-
-          {/* Right Section */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onCreatePost}
-              className="hidden md:flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-2 rounded-full hover:shadow-lg hover:scale-105 transition-all font-medium text-sm"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Post</span>
-            </button>
-
-            <button
-              onClick={toggleSearchExpanded}
-              className="md:hidden p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all"
-              aria-label="Toggle search"
-            >
-              <Search className="w-5 h-5" />
-            </button>
-
-            <UserDropdown
-              userInitial={userInitial}
-              userName={userName}
-              onProfileClick={() => handlePageChange("profile")}
-              onSettingsClick={handleSettings}
-              onLogoutClick={handleLogout}
-            />
-          </div>
-        </div>
-
-        {/* Mobile Search */}
-        {isSearchExpanded && (
-          <div className="lg:hidden px-4 pb-4 border-t border-gray-200 bg-white">
-            <div className="pt-3">
-              <SearchBar
-                value={searchQuery}
-                onChange={handleSearch}
-                autoFocus
-                onClose={toggleSearchExpanded}
-              />
+    return (
+      <div className="absolute left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-xl p-2 z-50">
+        {!hasQuery && (
+          <div className="p-2">
+            <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Try searching</p>
+            <div className="space-y-1">
+              {SEARCH_HINTS.map((hint) => (
+                <button
+                  key={hint}
+                  onMouseDown={() => setSearchQuery(hint)}
+                  className="w-full text-left text-sm px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
+                >
+                  {hint}
+                </button>
+              ))}
             </div>
           </div>
         )}
 
-        {/* Mobile Menu */}
-        {isMobileMenuOpen && (
-          <div className="lg:hidden border-t border-gray-200 bg-white">
-            <div className="px-3 py-4 space-y-2">
-              {mobileNavItems}
-              <div className="border-t border-gray-200 pt-3 mt-3">
-                <button
-                  onClick={() => {
-                    onCreatePost();
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className="flex items-center gap-3 w-full px-4 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:shadow-lg transition-all"
-                >
-                  <Plus className="w-5 h-5" />
-                  <span className="font-medium">Create Post</span>
-                </button>
+        {hasQuery && searchLoading && (
+          <div className="px-3 py-3 text-sm text-gray-500">Searching database...</div>
+        )}
+
+        {hasQuery && !searchLoading && searchError && (
+          <div className="px-3 py-3 text-sm text-red-600">{searchError}</div>
+        )}
+
+        {hasQuery && !searchLoading && !searchError && !hasResults && (
+          <div className="px-3 py-3 text-sm text-gray-500">No users, colleges, or schools found.</div>
+        )}
+
+        {hasQuery && !searchLoading && !searchError && hasResults && (
+          <div className="max-h-80 overflow-y-auto space-y-2">
+            {groupedResults.users.length > 0 && (
+              <div>
+                <p className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase">Users</p>
+                {groupedResults.users.map((item) => (
+                  <button
+                    key={`${item.type}-${item.id}`}
+                    onMouseDown={() => handleSearchResultClick(item)}
+                    className="w-full text-left rounded-lg px-3 py-2 hover:bg-gray-100"
+                  >
+                    <p className="text-sm font-medium text-gray-900">{item.title}</p>
+                    <p className="text-xs text-gray-600">{item.subtitle}</p>
+                  </button>
+                ))}
               </div>
-            </div>
+            )}
+
+            {groupedResults.colleges.length > 0 && (
+              <div>
+                <p className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase">Colleges</p>
+                {groupedResults.colleges.map((item) => (
+                  <button
+                    key={`${item.type}-${item.id}`}
+                    onMouseDown={() => handleSearchResultClick(item)}
+                    className="w-full text-left rounded-lg px-3 py-2 hover:bg-gray-100"
+                  >
+                    <p className="text-sm font-medium text-gray-900">{item.title}</p>
+                    <p className="text-xs text-gray-600">{item.subtitle}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {groupedResults.schools.length > 0 && (
+              <div>
+                <p className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase">Schools</p>
+                {groupedResults.schools.map((item) => (
+                  <button
+                    key={`${item.type}-${item.id}`}
+                    onMouseDown={() => handleSearchResultClick(item)}
+                    className="w-full text-left rounded-lg px-3 py-2 hover:bg-gray-100"
+                  >
+                    <p className="text-sm font-medium text-gray-900">{item.title}</p>
+                    <p className="text-xs text-gray-600">{item.subtitle}</p>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
-    </nav>
+    );
+  };
+
+  return (
+    <>
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur border-b border-gray-200 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="h-16 flex items-center gap-3">
+            <button
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              className="lg:hidden p-2 rounded-lg text-gray-700 hover:bg-gray-100"
+              aria-label="Toggle menu"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+
+            <button onClick={() => handlePage("home")} className="flex items-center gap-2 shrink-0" aria-label="Go home">
+              <div className="w-9 h-9 rounded-lg bg-white border border-gray-200 flex items-center justify-center overflow-hidden">
+                <img src="/logo1.png" alt="OneLink" className="w-8 h-8 object-contain" />
+              </div>
+              <span className="text-lg font-bold text-gray-900">OneLink</span>
+            </button>
+
+            <div className="hidden md:block relative w-72 lg:w-96">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                ref={searchInputRef}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setTimeout(() => setSearchFocused(false), 120)}
+                placeholder="Search users, colleges, schools... (Press /)"
+                className="w-full bg-gray-100 border border-gray-200 rounded-xl pl-9 pr-9 py-2.5 text-sm text-gray-800 outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => {
+                    setSearchQuery("");
+                    setSearchResults([]);
+                    setSearchError("");
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  aria-label="Clear search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+              {renderSearchDropdown()}
+            </div>
+
+            <div className="hidden lg:flex items-center gap-1 flex-1 justify-center">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const active = currentPage === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    onClick={() => handlePage(item.key)}
+                    className={`relative px-3 py-2 rounded-lg min-w-[76px] transition ${
+                      active ? "text-blue-700 bg-blue-50" : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                    }`}
+                  >
+                    <div className="flex flex-col items-center">
+                      <div className="relative">
+                        <Icon className="w-5 h-5" />
+                        {item.badge && item.badge > 0 && (
+                          <span className="absolute -top-2 -right-3 min-w-4 px-1 h-4 rounded-full bg-red-500 text-white text-[10px] leading-4">
+                            {item.badge > 9 ? "9+" : item.badge}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs mt-1">{item.label}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                onClick={onCreatePost}
+                className="hidden md:flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-full hover:bg-blue-700"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="text-sm font-medium">Post</span>
+              </button>
+
+              <button
+                onClick={() => setMobileSearchOpen((prev) => !prev)}
+                className="md:hidden p-2 rounded-lg text-gray-700 hover:bg-gray-100"
+                aria-label="Toggle mobile search"
+              >
+                <Search className="w-5 h-5" />
+              </button>
+
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  onClick={() => setDropdownOpen((prev) => !prev)}
+                  className="flex items-center gap-2 p-1.5 rounded-full hover:bg-gray-100"
+                  aria-label="User menu"
+                >
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-semibold flex items-center justify-center">
+                    {userInitial}
+                  </div>
+                  <ChevronDown className={`w-4 h-4 text-gray-600 transition ${dropdownOpen ? "rotate-180" : ""}`} />
+                </button>
+
+                {dropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-xl p-2">
+                    <div className="px-3 py-2 border-b border-gray-100">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{userName}</p>
+                      <p className="text-xs text-gray-500">Manage your account</p>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 p-2">
+                      <div className="rounded-lg bg-gray-50 p-2 text-center">
+                        <p className="text-xs text-gray-500">Posts</p>
+                        <p className="text-sm font-semibold text-gray-900">{userStats?.totalPosts ?? 0}</p>
+                      </div>
+                      <div className="rounded-lg bg-gray-50 p-2 text-center">
+                        <p className="text-xs text-gray-500">Likes</p>
+                        <p className="text-sm font-semibold text-gray-900">{userStats?.totalLikes ?? 0}</p>
+                      </div>
+                      <div className="rounded-lg bg-gray-50 p-2 text-center">
+                        <p className="text-xs text-gray-500">Network</p>
+                        <p className="text-sm font-semibold text-gray-900">{userStats?.totalConnections ?? 0}</p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handlePage("profile")}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 text-sm text-gray-700"
+                    >
+                      <User className="w-4 h-4" />
+                      My Profile
+                    </button>
+                    <button
+                      onClick={() => alert("Settings coming soon")}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 text-sm text-gray-700"
+                    >
+                      <Settings className="w-4 h-4" />
+                      Settings
+                    </button>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-red-50 text-sm text-red-600"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {mobileSearchOpen && (
+          <div className="md:hidden border-t border-gray-200 px-4 pb-4 pt-3 bg-white">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setTimeout(() => setSearchFocused(false), 120)}
+                placeholder="Search users, colleges, schools..."
+                className="w-full bg-gray-100 border border-gray-200 rounded-xl pl-9 pr-9 py-2.5 text-sm text-gray-800 outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {mobileMenuOpen && (
+          <div className="lg:hidden border-t border-gray-200 bg-white px-3 py-4">
+            <div className="space-y-2">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const active = currentPage === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    onClick={() => handlePage(item.key)}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg ${
+                      active ? "bg-blue-50 text-blue-700" : "text-gray-700 hover:bg-gray-100"
+                    }`}
+                  >
+                    <span className="flex items-center gap-3">
+                      <Icon className="w-5 h-5" />
+                      <span>{item.label}</span>
+                    </span>
+                    {item.badge && item.badge > 0 && (
+                      <span className="text-xs bg-red-500 text-white rounded-full px-2 py-0.5">
+                        {item.badge > 9 ? "9+" : item.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  router.push("/institutions/new");
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100"
+              >
+                <Plus className="w-5 h-5" />
+                <span>New Institute</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onCreatePost();
+                }}
+                className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700"
+              >
+                <Plus className="w-5 h-5" />
+                <span>Create Post</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </nav>
+
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur border-t border-gray-200">
+        <div className="grid grid-cols-5 px-1 py-1">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const active = currentPage === item.key;
+            return (
+              <button
+                key={item.key}
+                onClick={() => handlePage(item.key)}
+                className={`flex flex-col items-center justify-center py-2 rounded-md text-[11px] ${
+                  active ? "text-blue-700 bg-blue-50" : "text-gray-600"
+                }`}
+              >
+                <Icon className="w-4 h-4 mb-1" />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </>
   );
 };
 
