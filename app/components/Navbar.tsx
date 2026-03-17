@@ -526,7 +526,7 @@ const Navbar: React.FC<NavbarProps> = ({
                 </button>
 
                 {dropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-xl p-2">
+                  <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-300 rounded-xl shadow-xl p-2">
                     <div className="px-3 py-2 border-b border-gray-100">
                       <p className="text-sm font-semibold text-gray-900 truncate">{userName}</p>
                       <p className="text-xs text-gray-500">Manage your account</p>
