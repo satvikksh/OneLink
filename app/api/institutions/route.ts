@@ -12,9 +12,17 @@ const COOKIE_NAME = "session_id";
 async function getCurrentUserId() {
   const jar = cookies();
   const signed = (await jar).get(COOKIE_NAME)?.value;
+
+  console.log("[DEBUG] session_id cookie:", signed ? "present" : "MISSING"); // ← check 1
+
   if (!signed) return null;
+
   const session = await getSessionBySignedToken(signed);
+
+  console.log("[DEBUG] session doc:", session ? JSON.stringify(session) : "NULL"); // ← check 2
+
   if (!session) return null;
+
   return String((session.user as any)?._id || session.user);
 }
 

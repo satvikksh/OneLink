@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 type FormState = {
   institutionType: "college" | "school";
@@ -46,10 +47,34 @@ const initialState: FormState = {
 };
 
 export default function NewInstitutionPage() {
+  const router = useRouter();
   const [form, setForm] = useState<FormState>(initialState);
   const [saving, setSaving] = useState(false);
+  const [authChecking, setAuthChecking] = useState(true); // ← guard state
   const [message, setMessage] = useState<string>("");
   const [error, setError] = useState<string>("");
+
+  // ✅ Auth guard: verify session before rendering the form
+  useEffect(() => {
+    async function checkAuth() {
+      try {
+        const res = await fetch("/api/institutions", {
+          method: "GET",
+          credentials: "include",
+        });
+        if (res.status === 401) {
+          router.replace("/login"); // redirect if not authenticated
+          return;
+        }
+      } catch {
+        router.replace("/login");
+        return;
+      } finally {
+        setAuthChecking(false);
+      }
+    }
+    checkAuth();
+  }, [router]);
 
   const update = (key: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -69,6 +94,12 @@ export default function NewInstitutionPage() {
         body: JSON.stringify(form),
       });
 
+      // ✅ Handle 401 specifically — redirect to login
+      if (res.status === 401) {
+        router.replace("/login");
+        return;
+      }
+
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(data?.error || "Failed to save details");
@@ -83,6 +114,15 @@ export default function NewInstitutionPage() {
       setSaving(false);
     }
   };
+
+  // ✅ Show nothing while checking auth (prevents flash of form)
+  if (authChecking) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-gray-500">Checking session...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
