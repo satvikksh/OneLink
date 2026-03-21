@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type {
   AppUser,
   GalleryItem,
@@ -99,7 +98,6 @@ function institutionToForm(institution: Institution | null): InstitutionForm {
 
 export default function InstituteDashboard() {
   const router = useRouter();
-  const [isRouting, startTransition] = useTransition();
   const [viewer, setViewer] = useState<AppUser | null>(null);
   const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -286,17 +284,6 @@ export default function InstituteDashboard() {
     }
   }
 
-  async function handleLogout() {
-    await fetch("/api/auth/logout", {
-      method: "POST",
-      credentials: "include",
-    }).catch(() => null);
-
-    startTransition(() => {
-      router.replace("/institutes/login");
-    });
-  }
-
   if (!ready && loading) {
     return (
       <div className="flex min-h-screen items-center justify-center px-4">
@@ -326,22 +313,6 @@ export default function InstituteDashboard() {
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-3 text-sm">
-              <Link
-                href="/"
-                className="rounded-full border border-slate-300/80 bg-white/80 px-4 py-2 text-slate-700"
-              >
-                Home
-              </Link>
-              <button
-                type="button"
-                onClick={handleLogout}
-                disabled={isRouting}
-                className="rounded-full bg-[var(--accent)] px-4 py-2 font-semibold text-white disabled:opacity-70"
-              >
-                Logout
-              </button>
-            </div>
           </div>
 
           <div className="mt-8 grid gap-4 md:grid-cols-3">

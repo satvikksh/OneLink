@@ -1,5 +1,7 @@
 import "./globals.css";
 import type { ReactNode } from "react";
+import AppNavbar from "./components/navigation/AppNavbar";
+import { themeBootScript } from "./src/lib/theme";
 
 export const metadata = {
   title: "OneLink Education Hub",
@@ -9,8 +11,12 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
+      </head>
       <body>
+        <AppNavbar />
         <main>{children}</main>
       </body>
     </html>

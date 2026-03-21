@@ -22,37 +22,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen overflow-hidden px-4 py-6 sm:px-6 lg:px-10">
       <div className="mx-auto flex max-w-7xl flex-col gap-8">
-        <header className="glass-panel sticky top-4 z-30 rounded-full px-5 py-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[linear-gradient(135deg,#205548,#7ac7d9)] text-sm font-semibold text-white">
-                OL
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
-                  OneLink Education Hub
-                </p>
-                <p className="heading-serif text-xl text-slate-800">
-                  Discovery for students, control for institutes
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-3 text-sm">
-              <Link
-                href="/students/login"
-                className="rounded-full border border-slate-300/70 bg-white/70 px-4 py-2 text-slate-700 transition hover:border-slate-400 hover:bg-white"
-              >
-                Student Login
-              </Link>
-              <Link
-                href="/institutes/login"
-                className="rounded-full border border-[rgba(139,58,28,0.28)] bg-[rgba(223,109,60,0.12)] px-4 py-2 text-[var(--accent-deep)] transition hover:bg-[rgba(223,109,60,0.18)]"
-              >
-                Institute Login
-              </Link>
-            </div>
-          </div>
-        </header>
+      
 
         <section className="relative overflow-hidden rounded-[2rem] px-6 py-10 sm:px-8 lg:px-12 lg:py-16">
           <div className="absolute inset-0 rounded-[2rem] bg-[linear-gradient(135deg,rgba(255,255,255,0.9),rgba(250,244,237,0.78),rgba(237,244,248,0.94))]" />

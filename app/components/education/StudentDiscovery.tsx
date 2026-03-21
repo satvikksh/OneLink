@@ -1,14 +1,17 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   useDeferredValue,
   useEffect,
   useMemo,
   useState,
-  useTransition,
 } from "react";
+import {
+  COMPARE_CHANGED_EVENT,
+  emitClientEvent,
+} from "../../src/lib/clientEvents";
+import { COMPARE_STORAGE_KEY } from "../../src/lib/theme";
 import type { AppUser, Institution } from "../../src/types/education";
 
 type Filters = {
@@ -33,7 +36,6 @@ const emptyFilters: Filters = {
 
 export default function StudentDiscovery() {
   const router = useRouter();
-  const [isRouting, startTransition] = useTransition();
   const [viewer, setViewer] = useState<AppUser | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -49,6 +51,26 @@ export default function StudentDiscovery() {
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sendingInquiry, setSendingInquiry] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(COMPARE_STORAGE_KEY);
+      const saved = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(saved)) {
+        setSelectedIds(saved.filter((item): item is string => typeof item === "string"));
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(COMPARE_STORAGE_KEY, JSON.stringify(selectedIds));
+    } catch {}
+
+    emitClientEvent(COMPARE_CHANGED_EVENT, {
+      count: selectedIds.length,
+    });
+  }, [selectedIds]);
 
   useEffect(() => {
     async function hydrateViewer() {
@@ -217,17 +239,6 @@ export default function StudentDiscovery() {
     }
   }
 
-  async function handleLogout() {
-    await fetch("/api/auth/logout", {
-      method: "POST",
-      credentials: "include",
-    }).catch(() => null);
-
-    startTransition(() => {
-      router.replace("/students/login");
-    });
-  }
-
   if (!authReady) {
     return (
       <div className="flex min-h-screen items-center justify-center px-4">
@@ -258,22 +269,6 @@ export default function StudentDiscovery() {
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-3 text-sm">
-              <Link
-                href="/"
-                className="rounded-full border border-slate-300/80 bg-white/80 px-4 py-2 text-slate-700"
-              >
-                Home
-              </Link>
-              <button
-                type="button"
-                onClick={handleLogout}
-                disabled={isRouting}
-                className="rounded-full bg-[var(--forest)] px-4 py-2 font-semibold text-white disabled:opacity-70"
-              >
-                Logout
-              </button>
-            </div>
           </div>
 
           <div className="mt-8 grid gap-4 md:grid-cols-3">

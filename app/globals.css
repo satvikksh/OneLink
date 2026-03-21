@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
-:root {
+:root,
+html[data-theme="light"] {
   --ink-strong: #1f2937;
   --ink-soft: #52607a;
   --panel: rgba(255, 255, 255, 0.78);
@@ -9,6 +10,67 @@
   --accent: #df6d3c;
   --accent-deep: #8b3a1c;
   --forest: #205548;
+  --surface-strong: rgba(255, 255, 255, 0.84);
+  --surface-soft: rgba(241, 245, 249, 0.9);
+  --page-orb-1: rgba(122, 199, 217, 0.36);
+  --page-orb-2: rgba(223, 109, 60, 0.18);
+  --page-orb-3: rgba(32, 85, 72, 0.12);
+  --page-start: #fbf7f1;
+  --page-mid: #eef4f5;
+  --page-end: #f8fbfc;
+  --selection: rgba(223, 109, 60, 0.2);
+  --shadow-soft: rgba(56, 75, 95, 0.09);
+  --shadow-strong: rgba(56, 75, 95, 0.12);
+  --switch-bg: rgba(255, 255, 255, 0.9);
+  --switch-text: #38506b;
+}
+
+html[data-theme="dark"] {
+  --ink-strong: #edf4ff;
+  --ink-soft: #b7c7da;
+  --panel: rgba(16, 25, 39, 0.76);
+  --panel-strong: rgba(14, 23, 36, 0.92);
+  --line: rgba(148, 163, 184, 0.24);
+  --accent: #ff9c70;
+  --accent-deep: #ffd1bc;
+  --forest: #74ddc2;
+  --surface-strong: rgba(20, 31, 48, 0.9);
+  --surface-soft: rgba(35, 47, 64, 0.88);
+  --page-orb-1: rgba(66, 153, 225, 0.18);
+  --page-orb-2: rgba(255, 156, 112, 0.14);
+  --page-orb-3: rgba(116, 221, 194, 0.12);
+  --page-start: #06111d;
+  --page-mid: #0d1725;
+  --page-end: #132235;
+  --selection: rgba(255, 156, 112, 0.32);
+  --shadow-soft: rgba(3, 10, 20, 0.3);
+  --shadow-strong: rgba(3, 10, 20, 0.42);
+  --switch-bg: rgba(18, 28, 43, 0.96);
+  --switch-text: #d7e5f5;
+}
+
+html[data-theme="blue"] {
+  --ink-strong: #12354f;
+  --ink-soft: #4a7292;
+  --panel: rgba(245, 251, 255, 0.82);
+  --panel-strong: rgba(235, 247, 255, 0.94);
+  --line: rgba(83, 128, 167, 0.22);
+  --accent: #2e86de;
+  --accent-deep: #1d5f9d;
+  --forest: #1f7f9d;
+  --surface-strong: rgba(249, 253, 255, 0.88);
+  --surface-soft: rgba(225, 240, 252, 0.92);
+  --page-orb-1: rgba(108, 190, 255, 0.38);
+  --page-orb-2: rgba(46, 134, 222, 0.16);
+  --page-orb-3: rgba(88, 173, 200, 0.18);
+  --page-start: #eef8ff;
+  --page-mid: #e5f2fb;
+  --page-end: #f7fbff;
+  --selection: rgba(46, 134, 222, 0.2);
+  --shadow-soft: rgba(72, 113, 155, 0.1);
+  --shadow-strong: rgba(72, 113, 155, 0.16);
+  --switch-bg: rgba(247, 252, 255, 0.92);
+  --switch-text: #295679;
 }
 
 * {
@@ -25,9 +87,9 @@ body {
   color: var(--ink-strong);
   font-family: "Trebuchet MS", "Segoe UI", sans-serif;
   background:
-    radial-gradient(circle at top left, rgba(122, 199, 217, 0.36), transparent 30%),
-    radial-gradient(circle at 85% 15%, rgba(223, 109, 60, 0.18), transparent 24%),
-    linear-gradient(180deg, #fbf7f1 0%, #eef4f5 48%, #f8fbfc 100%);
+    radial-gradient(circle at top left, var(--page-orb-1), transparent 30%),
+    radial-gradient(circle at 85% 15%, var(--page-orb-2), transparent 24%),
+    linear-gradient(180deg, var(--page-start) 0%, var(--page-mid) 48%, var(--page-end) 100%);
 }
 
 a {
@@ -43,7 +105,7 @@ textarea {
 }
 
 ::selection {
-  background: rgba(223, 109, 60, 0.2);
+  background: var(--selection);
 }
 
 .heading-serif {
@@ -54,14 +116,174 @@ textarea {
   background: var(--panel);
   backdrop-filter: blur(16px);
   border: 1px solid var(--line);
-  box-shadow: 0 22px 50px rgba(56, 75, 95, 0.09);
+  box-shadow: 0 22px 50px var(--shadow-soft);
 }
 
 .glass-panel-strong {
   background: var(--panel-strong);
   backdrop-filter: blur(20px);
   border: 1px solid var(--line);
-  box-shadow: 0 25px 60px rgba(56, 75, 95, 0.12);
+  box-shadow: 0 25px 60px var(--shadow-strong);
+}
+
+.site-navbar {
+  background: color-mix(in srgb, var(--panel-strong) 92%, transparent 8%);
+}
+
+.nav-brand-mark {
+  background: linear-gradient(135deg, var(--forest), var(--accent));
+  box-shadow: 0 14px 30px color-mix(in srgb, var(--accent) 20%, transparent 80%);
+}
+
+.nav-theme-group,
+.nav-profile,
+.nav-status {
+  background: var(--surface-strong);
+  border: 1px solid var(--line);
+}
+
+.nav-theme-button,
+.nav-auth-link,
+.nav-auth-button,
+.nav-mobile-toggle {
+  border: 1px solid transparent;
+}
+
+.nav-theme-button,
+.nav-auth-link,
+.nav-mobile-toggle,
+.nav-status {
+  color: var(--ink-soft);
+}
+
+.nav-theme-button:hover,
+.nav-auth-link:hover,
+.nav-mobile-toggle:hover {
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-strong) 92%);
+  border-color: var(--line);
+  color: var(--ink-strong);
+}
+
+.nav-theme-button.is-active,
+.nav-auth-button {
+  background: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 78%, white 22%);
+  color: white;
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--accent) 24%, transparent 76%);
+}
+
+.nav-auth-button:hover {
+  filter: brightness(1.03);
+}
+
+.nav-avatar {
+  background: linear-gradient(135deg, var(--forest), var(--accent));
+  color: white;
+}
+
+.nav-profile {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.nav-quick-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  background: var(--surface-strong);
+  border: 1px solid var(--line);
+  color: var(--ink-strong);
+}
+
+.nav-quick-link:hover {
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-strong) 92%);
+}
+
+.nav-quick-link.is-active {
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface-strong) 86%);
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--line) 70%);
+}
+
+.nav-quick-badge {
+  display: inline-flex;
+  min-width: 1.45rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.2rem 0.45rem;
+  background: color-mix(in srgb, var(--forest) 16%, var(--surface-soft) 84%);
+  color: var(--ink-strong);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+body,
+a,
+button,
+input,
+select,
+textarea,
+.glass-panel,
+.glass-panel-strong,
+.theme-switcher,
+.theme-option {
+  transition:
+    background-color 220ms ease,
+    color 220ms ease,
+    border-color 220ms ease,
+    box-shadow 220ms ease;
+}
+
+.theme-switcher {
+  background: var(--switch-bg);
+}
+
+.theme-option {
+  border: 1px solid transparent;
+  color: var(--switch-text);
+}
+
+.theme-option.is-active {
+  background: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 82%, white 18%);
+  color: white;
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--accent) 26%, transparent 74%);
+}
+
+.text-slate-900,
+.text-slate-800,
+.text-slate-700 {
+  color: var(--ink-strong) !important;
+}
+
+.text-slate-600,
+.text-slate-500,
+.text-slate-400 {
+  color: var(--ink-soft) !important;
+}
+
+.bg-white,
+.bg-white\/70,
+.bg-white\/75,
+.bg-white\/80,
+.bg-white\/85 {
+  background-color: var(--surface-strong) !important;
+}
+
+.bg-slate-50,
+.bg-slate-100 {
+  background-color: var(--surface-soft) !important;
+}
+
+.border-slate-200,
+.border-slate-200\/70,
+.border-slate-200\/80,
+.border-slate-300,
+.border-slate-300\/70,
+.border-slate-300\/80 {
+  border-color: var(--line) !important;
 }
 
 @keyframes float-up {
@@ -90,4 +312,19 @@ textarea {
 
 .animate-pulse-soft {
   animation: pulse-soft 4.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body,
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  .glass-panel,
+  .glass-panel-strong,
+  .theme-switcher,
+  .theme-option {
+    transition: none;
+  }
 }

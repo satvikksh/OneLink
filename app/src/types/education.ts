@@ -7,6 +7,8 @@ export type AppUser = {
   email: string;
   role: AccountRole | "recruiter" | "creator";
   organizationName?: string | null;
+  avatarUrl?: string | null;
+  profileImage?: string | null;
 };
 
 export type GalleryItem = {

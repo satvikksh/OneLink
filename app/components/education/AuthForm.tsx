@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { getOrCreateDeviceKey, persistDeviceKey } from "../../src/lib/clientDevice";
+import { emitClientEvent, AUTH_CHANGED_EVENT } from "../../src/lib/clientEvents";
 import type { AccountRole } from "../../src/types/education";
 
 type AuthFormProps = {
@@ -180,6 +181,11 @@ export default function AuthForm({ mode, role }: AuthFormProps) {
       if (data?.signature) {
         persistDeviceKey(data.signature);
       }
+
+      emitClientEvent(AUTH_CHANGED_EVENT, {
+        role,
+        mode,
+      });
 
       setSuccess(data?.message || "Success.");
       const nextPath =
