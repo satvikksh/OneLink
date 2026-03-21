@@ -1,10 +1,5 @@
-import { Suspense } from "react";
-import ClientApp from "./ClientApp";
+import LandingPage from "./components/education/LandingPage";
 
 export default function Page() {
-  return (
-    <Suspense fallback={<p>Loading app…</p>}>
-      <ClientApp />
-    </Suspense>
-  );
+  return <LandingPage />;
 }

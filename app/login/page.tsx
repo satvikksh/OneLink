@@ -1,10 +1,5 @@
-import { Suspense } from "react";
-import LoginForm from "./LoginForm";
+import ModuleChoice from "../components/education/ModuleChoice";
 
 export default function LoginPage() {
-  return (
-    <Suspense fallback={<p>Loading login…</p>}>
-      <LoginForm />
-    </Suspense>
-  );
+  return <ModuleChoice mode="login" />;
 }

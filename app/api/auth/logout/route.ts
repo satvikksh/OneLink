@@ -1,22 +1,26 @@
-// app/api/auth/logout/route.ts
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { getSessionBySignedToken, destroySession } from "../../../src/lib/session";
+import { destroySession, getSessionBySignedToken } from "../../../src/lib/session";
 
 export async function POST(req: Request) {
   try {
-    const jar = cookies();
-    const signedSession = (await jar).get("session_id")?.value;
-    const session = await getSessionBySignedToken(signedSession);
+    const jar = await cookies();
+    const signedSession = jar.get("session_id")?.value;
+    const deviceKey =
+      req.headers.get("x-device-key") || jar.get("device_key")?.value || null;
+
+    const session = await getSessionBySignedToken(signedSession, deviceKey);
     if (session) {
       await destroySession(session.sid);
     }
-    const res = NextResponse.json({ ok: true });
-    res.cookies.set({ name: "auth_token", value: "", path: "/", maxAge: 0 });
-    res.cookies.set({ name: "session_id", value: "", path: "/", maxAge: 0 });
-    return res;
-  } catch (err) {
-    console.error("Logout error", err);
+
+    const response = NextResponse.json({ ok: true });
+    response.cookies.set({ name: "auth_token", value: "", path: "/", maxAge: 0 });
+    response.cookies.set({ name: "session_id", value: "", path: "/", maxAge: 0 });
+    response.cookies.set({ name: "device_key", value: "", path: "/", maxAge: 0 });
+    return response;
+  } catch (error) {
+    console.error("Logout error", error);
     return NextResponse.json({ error: "Logout failed" }, { status: 500 });
   }
 }

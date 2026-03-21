@@ -102,7 +102,7 @@ export default function ClientApp() {
     return () => { active = false; };
   }, [router]);
 
-  const rawPage = (searchParams.get("page") || "home").toLowerCase();
+  const rawPage = (searchParams?.get("page") || "home").toLowerCase();
   const currentPage = useMemo<PageKey>(() => {
     const allowed: PageKey[] = ["home", "network", "jobs", "chat", "profile", "notifications"];
     return (allowed.includes(rawPage as PageKey) ? rawPage : "home") as PageKey;

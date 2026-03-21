@@ -4,14 +4,17 @@ import type { NextRequest } from "next/server";
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Only protect UI routes
-  if (pathname.startsWith("/dashboard") || pathname.startsWith("/app")) {
+  if (
+    pathname.startsWith("/students/discover") ||
+    pathname.startsWith("/institutes/dashboard")
+  ) {
     const signed = req.cookies.get("session_id")?.value;
 
-    // ONLY check presence of cookie
     if (!signed) {
       const url = req.nextUrl.clone();
-      url.pathname = "/login";
+      url.pathname = pathname.startsWith("/institutes")
+        ? "/institutes/login"
+        : "/students/login";
       url.searchParams.set("next", pathname);
       return NextResponse.redirect(url);
     }
@@ -21,5 +24,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/app/:path*"],
+  matcher: ["/students/discover/:path*", "/institutes/dashboard/:path*"],
 };
