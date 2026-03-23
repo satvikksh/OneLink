@@ -266,13 +266,14 @@ export default function AppNavbar() {
                   className="flex items-center gap-3 group transition-transform hover:scale-[1.02]"
                 >
                   <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-sm font-semibold shadow-md group-hover:shadow-lg transition-all">
-                    OL
+                <img src="/logo1.png" alt="OneLink" className=" object-contain" />
+          
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-[0.28em] text-gray-500 dark:text-gray-400">
+                    <p className="text-lg uppercase tracking-[0.28em] text-black dark:text-gray-400">
                       OneLink
                     </p>
-                    <p className="text-lg font-semibold leading-tight">Education Hub</p>
+                    <p className="text-sm font-semibold leading-tight text-black dark:text-gray-400">Powerd by Satvik's Group</p>
                   </div>
                 </Link>
 

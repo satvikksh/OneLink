@@ -18,7 +18,7 @@ declare global {
 const THEME_LABELS: Record<ThemeMode, string> = {
   light: "Light",
   dark: "Dark",
-  blue: "Light Blue",
+  blue: "Blue",
 };
 
 export default function ThemeSwitcher() {

@@ -26,27 +26,27 @@ html[data-theme="light"] {
 }
 
 html[data-theme="dark"] {
-  --ink-strong: #edf4ff;
-  --ink-soft: #b7c7da;
-  --panel: rgba(16, 25, 39, 0.76);
-  --panel-strong: rgba(14, 23, 36, 0.92);
-  --line: rgba(148, 163, 184, 0.24);
+  --ink-strong: #f8fafc;
+  --ink-soft: #cbd5e1;
+  --panel: rgba(2, 6, 23, 0.78);
+  --panel-strong: rgba(3, 7, 18, 0.92);
+  --line: rgba(148, 163, 184, 0.18);
   --accent: #ff9c70;
   --accent-deep: #ffd1bc;
   --forest: #74ddc2;
-  --surface-strong: rgba(20, 31, 48, 0.9);
-  --surface-soft: rgba(35, 47, 64, 0.88);
-  --page-orb-1: rgba(66, 153, 225, 0.18);
-  --page-orb-2: rgba(255, 156, 112, 0.14);
-  --page-orb-3: rgba(116, 221, 194, 0.12);
-  --page-start: #06111d;
-  --page-mid: #0d1725;
-  --page-end: #132235;
+  --surface-strong: rgba(15, 23, 42, 0.9);
+  --surface-soft: rgba(17, 24, 39, 0.9);
+  --page-orb-1: rgba(51, 65, 85, 0.18);
+  --page-orb-2: rgba(255, 156, 112, 0.08);
+  --page-orb-3: rgba(116, 221, 194, 0.08);
+  --page-start: #020617;
+  --page-mid: #0f172a;
+  --page-end: #111827;
   --selection: rgba(255, 156, 112, 0.32);
   --shadow-soft: rgba(3, 10, 20, 0.3);
   --shadow-strong: rgba(3, 10, 20, 0.42);
-  --switch-bg: rgba(18, 28, 43, 0.96);
-  --switch-text: #d7e5f5;
+  --switch-bg: rgba(15, 23, 42, 0.96);
+  --switch-text: #e2e8f0;
 }
 
 html[data-theme="blue"] {
@@ -86,6 +86,7 @@ body {
   margin: 0;
   color: var(--ink-strong);
   font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+  background-color: var(--page-mid);
   background:
     radial-gradient(circle at top left, var(--page-orb-1), transparent 30%),
     radial-gradient(circle at 85% 15%, var(--page-orb-2), transparent 24%),
