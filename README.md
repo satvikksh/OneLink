@@ -408,8 +408,8 @@ This project is licensed under the **MIT License**.
 **Project:** OneLink – Institution Finder  
 **GitHub Repository:** [https://github.com/satvikksh/OneLink](https://github.com/satvikksh/OneLink)  
 **Maintainer:** `satvikksh`  
-**Email:** `your-email@example.com`  
-**LinkedIn:** `https://linkedin.com/in/your-profile`
+**Email:** `satvikksh@gmail.com`  
+**LinkedIn:** `https://www.linkedin.com/in/satvik-kushwaha-343452237/`
 
 ---
 
