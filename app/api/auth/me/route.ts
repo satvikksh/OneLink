@@ -27,13 +27,20 @@ export async function GET(req: Request) {
         httpOnly: true,
         maxAge: 0,
       });
+      response.cookies.set("device_key", "", {
+        path: "/",
+        maxAge: 0,
+      });
+      response.headers.set("Cache-Control", "no-store");
       return response;
     }
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       { user: serializeUser(user as Record<string, unknown>) },
       { status: 200 }
     );
+    response.headers.set("Cache-Control", "no-store");
+    return response;
   } catch (error) {
     console.error("/api/auth/me error:", error);
     return NextResponse.json(

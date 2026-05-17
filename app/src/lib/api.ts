@@ -1,7 +1,9 @@
+import { getStoredDeviceKey } from "./clientDevice";
+
 export async function authFetchMe() {
   const deviceKey =
     typeof window !== "undefined"
-      ? window.localStorage.getItem("onelink_device_key") || ""
+      ? getStoredDeviceKey()
       : "";
 
   const res = await fetch("/api/auth/me", {

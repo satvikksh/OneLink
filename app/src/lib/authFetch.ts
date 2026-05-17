@@ -1,10 +1,12 @@
 // lib/authFetch.ts
+import { getStoredDeviceKey } from "./clientDevice";
+
 export async function authFetch(url: string, options: RequestInit = {}) {
   const headers = new Headers(options.headers || {});
 
   try {
     if (typeof window !== "undefined") {
-      const dk = localStorage.getItem("onelink_device_key");
+      const dk = getStoredDeviceKey();
       if (dk) headers.set("x-device-key", dk);
     }
   } catch {}
@@ -20,7 +22,13 @@ export async function authFetch(url: string, options: RequestInit = {}) {
   if (res.status === 401) {
     if (typeof window !== "undefined") {
       const next = encodeURIComponent(window.location.pathname + window.location.search);
-      window.location.href = `/login?next=${next}`;
+      const pathname = window.location.pathname;
+      const loginPath = pathname.startsWith("/students/")
+        ? "/students/login"
+        : pathname.startsWith("/institutes/")
+        ? "/institutes/login"
+        : "/login";
+      window.location.href = `${loginPath}?next=${next}`;
     }
 
     let data: any = null;

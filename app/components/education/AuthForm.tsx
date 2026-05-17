@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { getOrCreateDeviceKey, persistDeviceKey } from "../../src/lib/clientDevice";
 import { emitClientEvent, AUTH_CHANGED_EVENT } from "../../src/lib/clientEvents";
 import type { AccountRole } from "../../src/types/education";
@@ -77,6 +77,41 @@ const benefits = {
   ],
 };
 
+const roleHome = {
+  student: "/students/discover",
+  institute: "/institutes/dashboard",
+} as const;
+
+function getSafeNextPath(rawNext: string | null | undefined, role: AccountRole) {
+  const fallback = roleHome[role];
+  if (!rawNext || !rawNext.startsWith("/") || rawNext.startsWith("//")) {
+    return fallback;
+  }
+
+  const authPaths = [
+    "/login",
+    "/register",
+    "/students/login",
+    "/students/register",
+    "/institutes/login",
+    "/institutes/register",
+  ];
+
+  if (authPaths.some((path) => rawNext === path || rawNext.startsWith(`${path}?`))) {
+    return fallback;
+  }
+
+  if (role === "student" && rawNext.startsWith("/institutes/")) {
+    return fallback;
+  }
+
+  if (role === "institute" && rawNext.startsWith("/students/")) {
+    return fallback;
+  }
+
+  return rawNext;
+}
+
 export default function AuthForm({ mode, role }: AuthFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -97,6 +132,7 @@ export default function AuthForm({ mode, role }: AuthFormProps) {
       : null
   );
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(mode === "login");
 
   const pageCopy = copy[role][mode];
   const passwordScore = useMemo(() => {
@@ -112,6 +148,44 @@ export default function AuthForm({ mode, role }: AuthFormProps) {
   const updateForm = (key: keyof FormState, value: string | boolean) => {
     setForm((current) => ({ ...current, [key]: value }));
   };
+
+  useEffect(() => {
+    if (mode !== "login") return;
+
+    let active = true;
+
+    async function redirectIfAlreadyAuthenticated() {
+      try {
+        const response = await fetch("/api/auth/me", {
+          cache: "no-store",
+          credentials: "include",
+        });
+
+        if (!response.ok) return;
+
+        const data = await response.json().catch(() => ({}));
+        const currentRole = data?.user?.role;
+        if (
+          !active ||
+          (currentRole !== "student" && currentRole !== "institute")
+        ) {
+          return;
+        }
+
+        const nextPath = getSafeNextPath(searchParams?.get("next"), currentRole);
+        router.replace(nextPath);
+        router.refresh();
+      } finally {
+        if (active) setCheckingSession(false);
+      }
+    }
+
+    redirectIfAlreadyAuthenticated();
+
+    return () => {
+      active = false;
+    };
+  }, [mode, router, searchParams]);
 
   const validate = () => {
     if (!form.email.trim() || !form.password) {
@@ -188,13 +262,14 @@ export default function AuthForm({ mode, role }: AuthFormProps) {
       });
 
       setSuccess(data?.message || "Success.");
-      const nextPath =
-        searchParams?.get("next") ||
-        data?.redirect ||
-        (role === "student" ? "/students/discover" : "/institutes/dashboard");
+      const nextPath = getSafeNextPath(
+        searchParams?.get("next") || data?.redirect,
+        role
+      );
 
       startTransition(() => {
-        window.setTimeout(() => router.push(nextPath), 550);
+        router.replace(nextPath);
+        router.refresh();
       });
     } catch {
       setError("Network error. Please try again.");
@@ -383,14 +458,16 @@ export default function AuthForm({ mode, role }: AuthFormProps) {
 
             <button
               type="submit"
-              disabled={loading || isPending}
+              disabled={loading || isPending || checkingSession}
               className={`w-full rounded-full px-5 py-3 text-sm font-semibold text-white transition disabled:opacity-70 ${
                 role === "student"
                   ? "bg-[var(--forest)]"
                   : "bg-[var(--accent)]"
               }`}
             >
-              {loading || isPending
+              {checkingSession
+                ? "Checking session..."
+                : loading || isPending
                 ? "Please wait..."
                 : mode === "register"
                 ? role === "student"

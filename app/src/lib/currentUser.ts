@@ -8,8 +8,9 @@ export async function getCurrentUser(req?: Request) {
 
   const jar = await cookies();
   const signedSession = jar.get("session_id")?.value || null;
-  const deviceKey =
-    req?.headers.get("x-device-key") || jar.get("device_key")?.value || null;
+  const cookieDeviceKey = jar.get("device_key")?.value || null;
+  const headerDeviceKey = req?.headers.get("x-device-key") || null;
+  const deviceKey = cookieDeviceKey || headerDeviceKey;
 
   if (!signedSession) return null;
 

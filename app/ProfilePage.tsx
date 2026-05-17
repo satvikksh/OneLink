@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { getStoredDeviceKey } from "./src/lib/clientDevice";
 
 interface CurrentUser {
   _id: string;
@@ -33,9 +34,7 @@ interface ApiResult<T> {
 
 function getDeviceKey() {
   try {
-    return typeof window !== "undefined"
-      ? localStorage.getItem("onelink_device_key") || ""
-      : "";
+    return typeof window !== "undefined" ? getStoredDeviceKey() : "";
   } catch {
     return "";
   }

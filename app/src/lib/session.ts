@@ -100,8 +100,9 @@ export async function signSessionToken(params: {
 /**
  * Verify signed token (JWT). If deviceKey is provided, ensure the session.deviceKey matches.
  *
- * NOTE: we still keep the "raw sid" fallback for older cookies, but if a session exists with
- * a deviceKey and it does not match the provided deviceKey we WILL delete that session and return null.
+ * NOTE: we still keep the "raw sid" fallback for older cookies. A device-key mismatch rejects
+ * the request, but does not destroy the session; otherwise a stale client value can log out the
+ * rightful browser even though the browser still has a valid bound cookie.
  *
  * Usage: getSessionBySignedToken(signedToken, clientDeviceKey)
  */
@@ -121,13 +122,9 @@ export async function getSessionBySignedToken(
     const sess = await getSessionBySid(sid);
     if (!sess) return null;
 
-    // If session has deviceKey, enforce match (if client provided one)
+    // If session has deviceKey, enforce match.
     if (sess.deviceKey) {
       if (!clientDeviceKey || String(sess.deviceKey) !== String(clientDeviceKey)) {
-        // Device mismatch — destroy session (prevent hijack)
-        try {
-          await Session.deleteOne({ _id: sess._id });
-        } catch {}
         return null;
       }
     }
@@ -141,12 +138,9 @@ export async function getSessionBySignedToken(
     const sess = await getSessionBySid(signedToken);
     if (!sess) return null;
 
-    // Enforce deviceKey if present in session
+    // Enforce deviceKey if present in session.
     if (sess.deviceKey) {
       if (!clientDeviceKey || String(sess.deviceKey) !== String(clientDeviceKey)) {
-        try {
-          await Session.deleteOne({ _id: sess._id });
-        } catch {}
         return null;
       }
     }

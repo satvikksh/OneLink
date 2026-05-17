@@ -64,7 +64,7 @@ export async function POST(req: Request) {
 
     const jar = await cookies();
     const signed = jar.get("session_id")?.value ?? null;
-    const deviceKey = req.headers.get("x-device-key") || jar.get("device_key")?.value || null;
+    const deviceKey = jar.get("device_key")?.value || req.headers.get("x-device-key") || null;
 
     if (!signed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -77,6 +77,7 @@ export async function POST(req: Request) {
       const res = NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       res.cookies.delete("session_id");
       res.cookies.delete("auth_token");
+      res.cookies.delete("device_key");
       return res;
     }
 

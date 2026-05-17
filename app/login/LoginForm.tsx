@@ -3,41 +3,11 @@
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-
-const DEVICE_KEY_STORAGE = 'mongodb+srv://onelink:onelink%40123@cluster0.jwd2ykt.mongodb.net/onelink?retryWrites=true&w=majority&appName=onelink';
-
-function getOrCreateDeviceKey(): string {
-  try {
-    if (typeof crypto !== 'undefined' && typeof (crypto as any).randomUUID === 'function') {
-      return (crypto as any).randomUUID();
-    }
-    if (typeof crypto !== 'undefined' && (crypto as any).getRandomValues) {
-      const arr = new Uint8Array(16);
-      (crypto as any).getRandomValues(arr);
-      arr[6] = (arr[6] & 0x0f) | 0x40;
-      arr[8] = (arr[8] & 0x3f) | 0x80;
-      const hex = Array.from(arr, (n) => n.toString(16).padStart(2, '0'));
-      return `${hex.slice(0,4).join('')}-${hex.slice(4,6).join('')}-${hex.slice(6,8).join('')}-${hex.slice(8,10).join('')}-${hex.slice(10,16).join('')}`;
-    }
-  } catch {}
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
-
-function ensureDeviceKeyStored(): string {
-  try {
-    const existing = typeof window !== 'undefined' ? window.localStorage.getItem(DEVICE_KEY_STORAGE) : null;
-    if (existing && existing.length > 5) return existing;
-    const newKey = getOrCreateDeviceKey();
-    try { window.localStorage.setItem(DEVICE_KEY_STORAGE, newKey); } catch {}
-    return newKey;
-  } catch {
-    return getOrCreateDeviceKey();
-  }
-}
+import {
+  getOrCreateDeviceKey,
+  getStoredDeviceKey,
+  persistDeviceKey,
+} from "../src/lib/clientDevice";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -54,7 +24,7 @@ export default function LoginForm() {
   const isMounted = useRef(true);
   useEffect(() => { isMounted.current = true; return () => { isMounted.current = false; }; }, []);
 
-  useEffect(() => { try { ensureDeviceKeyStored(); } catch {} }, []);
+  useEffect(() => { try { getOrCreateDeviceKey(); } catch {} }, []);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -70,7 +40,7 @@ export default function LoginForm() {
     setLoading(true);
     try {
       const deviceKey = (typeof window !== 'undefined')
-        ? (window.localStorage.getItem(DEVICE_KEY_STORAGE) || ensureDeviceKeyStored())
+        ? (getStoredDeviceKey() || getOrCreateDeviceKey())
         : getOrCreateDeviceKey();
 
       const res = await fetch("/api/auth/login", {
@@ -85,12 +55,11 @@ export default function LoginForm() {
       if (!res.ok) throw new Error(data?.error || data?.message || "Invalid credentials");
 
       const effectiveKey = data?.signature || deviceKey;
-      try { window.localStorage.setItem(DEVICE_KEY_STORAGE, effectiveKey); } catch {}
-      document.cookie = `device_key=${encodeURIComponent(effectiveKey)}; path=/; max-age=${60 * 60 * 24 * 30}; samesite=lax`;
+      persistDeviceKey(effectiveKey);
 
       if (isMounted.current) setSuccess("Login successful 🎉 Redirecting...");
-      const next = searchParams?.get("next") || "/";
-      setTimeout(() => router.push(next), 600);
+      const next = searchParams?.get("next") || data?.redirect || "/";
+      setTimeout(() => router.replace(next), 600);
     } catch (err: any) {
       if (isMounted.current) setError(err?.message || "Something went wrong");
     } finally {

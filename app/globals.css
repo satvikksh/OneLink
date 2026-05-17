@@ -18,6 +18,9 @@ html[data-theme="light"] {
   --page-start: #fbf7f1;
   --page-mid: #eef4f5;
   --page-end: #f8fbfc;
+  --hero-start: rgba(255, 255, 255, 0.9);
+  --hero-mid: rgba(250, 244, 237, 0.78);
+  --hero-end: rgba(237, 244, 248, 0.94);
   --selection: rgba(223, 109, 60, 0.2);
   --shadow-soft: rgba(56, 75, 95, 0.09);
   --shadow-strong: rgba(56, 75, 95, 0.12);
@@ -42,6 +45,9 @@ html[data-theme="dark"] {
   --page-start: #020617;
   --page-mid: #0f172a;
   --page-end: #111827;
+  --hero-start: rgba(15, 23, 42, 0.96);
+  --hero-mid: rgba(17, 24, 39, 0.94);
+  --hero-end: rgba(2, 6, 23, 0.98);
   --selection: rgba(255, 156, 112, 0.32);
   --shadow-soft: rgba(3, 10, 20, 0.3);
   --shadow-strong: rgba(3, 10, 20, 0.42);
@@ -66,6 +72,9 @@ html[data-theme="blue"] {
   --page-start: #eef8ff;
   --page-mid: #e5f2fb;
   --page-end: #f7fbff;
+  --hero-start: rgba(249, 253, 255, 0.94);
+  --hero-mid: rgba(235, 247, 255, 0.88);
+  --hero-end: rgba(225, 240, 252, 0.92);
   --selection: rgba(46, 134, 222, 0.2);
   --shadow-soft: rgba(72, 113, 155, 0.1);
   --shadow-strong: rgba(72, 113, 155, 0.16);
@@ -125,6 +134,20 @@ textarea {
   backdrop-filter: blur(20px);
   border: 1px solid var(--line);
   box-shadow: 0 25px 60px var(--shadow-strong);
+}
+
+.landing-hero-backdrop {
+  background: linear-gradient(
+    135deg,
+    var(--hero-start),
+    var(--hero-mid),
+    var(--hero-end)
+  );
+}
+
+.landing-accent-panel {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-strong) 90%);
+  border-color: color-mix(in srgb, var(--accent) 24%, var(--line) 76%);
 }
 
 .site-navbar {

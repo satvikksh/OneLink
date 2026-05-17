@@ -9,6 +9,7 @@ import { sanitizeDeviceKey, generateSignature } from "../../../src/lib/device";
 
 const COOKIE_NAME = "auth_token";
 const SESSION_COOKIE_NAME = "session_id";
+const DEVICE_COOKIE_NAME = "device_key";
 
 const getJwtSecret = () => {
   const secret = process.env.JWT_SECRET || "default_secret";
@@ -67,6 +68,7 @@ export async function POST(req: Request) {
       }
     }
 
+    const resolvedDeviceKey = user.signature || deviceKey || generateSignature();
     const userObj = user.toObject ? user.toObject() : { ...user };
     delete (userObj as any).password;
     delete (userObj as any).signature;
@@ -94,7 +96,7 @@ export async function POST(req: Request) {
 
     const sessionDoc = await createSession({
       userId: String(user._id),
-      deviceKey: user.signature || undefined,
+      deviceKey: resolvedDeviceKey,
       ua,
       ip,
       maxAgeSec,
@@ -105,6 +107,7 @@ export async function POST(req: Request) {
         userId: String(user._id),
         userSignature: user.signature,
         clientDeviceKey: deviceKey,
+        resolvedDeviceKey,
         sessionSid: sessionDoc?.sid,
         sessionDeviceKey: sessionDoc?.deviceKey,
         ua,
@@ -141,8 +144,13 @@ export async function POST(req: Request) {
       {
         message: "Login successful",
         user: userObj,
-        redirect: "/",
-        signature: user.signature,
+        redirect:
+          user.role === "student"
+            ? "/students/discover"
+            : user.role === "institute"
+            ? "/institutes/dashboard"
+            : "/",
+        signature: resolvedDeviceKey,
       },
       { status: 200 }
     );
@@ -169,6 +177,18 @@ res.cookies.set(
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",            // 🔥 REQUIRED
+    maxAge: maxAgeSec,
+  }
+);
+
+res.cookies.set(
+  DEVICE_COOKIE_NAME,
+  resolvedDeviceKey,
+  {
+    httpOnly: false,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
     maxAge: maxAgeSec,
   }
 );

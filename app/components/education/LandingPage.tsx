@@ -25,14 +25,14 @@ export default function LandingPage() {
       
 
         <section className="relative overflow-hidden rounded-[2rem] px-6 py-10 sm:px-8 lg:px-12 lg:py-16">
-          <div className="absolute inset-0 rounded-[2rem] bg-[linear-gradient(135deg,rgba(255,255,255,0.9),rgba(250,244,237,0.78),rgba(237,244,248,0.94))]" />
+          <div className="landing-hero-backdrop absolute inset-0 rounded-[2rem]" />
           <div className="animate-float absolute -left-10 top-10 h-36 w-36 rounded-full bg-[rgba(122,199,217,0.26)] blur-2xl" />
           <div className="animate-pulse-soft absolute right-8 top-16 h-48 w-48 rounded-full bg-[rgba(223,109,60,0.14)] blur-3xl" />
           <div className="animate-float absolute bottom-0 right-20 h-44 w-44 rounded-full bg-[rgba(32,85,72,0.12)] blur-3xl" />
 
           <div className="relative grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
             <div className="space-y-6">
-              <div className="inline-flex rounded-full border border-white/70 bg-white/70 px-4 py-2 text-xs uppercase tracking-[0.28em] text-slate-500">
+              <div className="inline-flex rounded-full border border-slate-200/70 bg-white/70 px-4 py-2 text-xs uppercase tracking-[0.28em] text-slate-500">
                 Dual authentication modules
               </div>
               <div className="max-w-3xl space-y-4">
@@ -61,7 +61,7 @@ export default function LandingPage() {
                 </Link>
                 <Link
                   href="/students/discover"
-                  className="rounded-full border border-slate-300 bg-white/80 px-6 py-3 text-sm font-semibold text-slate-700 transition hover:bg-white"
+                  className="rounded-full border border-slate-300 bg-white/80 px-6 py-3 text-sm font-semibold text-slate-700 transition hover:brightness-105"
                 >
                   Explore Directory
                 </Link>
@@ -107,7 +107,7 @@ export default function LandingPage() {
                       ))}
                     </ul>
                   </div>
-                  <div className="rounded-3xl border border-[rgba(223,109,60,0.18)] bg-[rgba(255,245,239,0.92)] p-5">
+                  <div className="landing-accent-panel rounded-3xl border p-5">
                     <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--accent-deep)]">
                       Institute Module
                     </p>
@@ -177,7 +177,7 @@ export default function LandingPage() {
               ].map((item) => (
                 <div
                   key={item}
-                  className="rounded-3xl border border-[rgba(223,109,60,0.16)] bg-[rgba(255,245,239,0.9)] p-4 text-sm leading-7 text-slate-600"
+                  className="landing-accent-panel rounded-3xl border p-4 text-sm leading-7 text-slate-600"
                 >
                   {item}
                 </div>

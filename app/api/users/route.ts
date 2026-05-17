@@ -13,11 +13,12 @@ const COOKIE_NAME = "session_id";
 const AUTH_TOKEN_NAME = "auth_token";
 
 /** helper: read current user id + session sid from signed session cookie */
-async function getCurrentUserId() {
-  const jar = cookies();
-  const signed = (await jar).get(COOKIE_NAME)?.value;
+async function getCurrentUserId(req?: Request) {
+  const jar = await cookies();
+  const signed = jar.get(COOKIE_NAME)?.value;
   if (!signed) return null;
-  const session = await getSessionBySignedToken(signed);
+  const deviceKey = jar.get("device_key")?.value || req?.headers.get("x-device-key") || null;
+  const session = await getSessionBySignedToken(signed, deviceKey);
   if (!session) return null;
   return { id: String((session.user as any)?._id || session.user), sessionSid: session.sid };
 }
@@ -58,7 +59,7 @@ export async function GET() {
 /** PUT: update current user's profile (and optionally change password) */
 export async function PUT(req: Request) {
   try {
-    const cu = await getCurrentUserId();
+    const cu = await getCurrentUserId(req);
     if (!cu) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     await dbConnect();
@@ -137,7 +138,7 @@ export async function PUT(req: Request) {
 /** DELETE: delete current user's account */
 export async function DELETE(req: Request) {
   try {
-    const cu = await getCurrentUserId();
+    const cu = await getCurrentUserId(req);
     if (!cu) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     await dbConnect();
@@ -151,6 +152,7 @@ export async function DELETE(req: Request) {
     const res = NextResponse.json({ ok: true }, { status: 200 });
     res.cookies.set(COOKIE_NAME, "", { path: "/", httpOnly: true, maxAge: 0 });
     res.cookies.set(AUTH_TOKEN_NAME, "", { path: "/", httpOnly: true, maxAge: 0 });
+    res.cookies.set("device_key", "", { path: "/", maxAge: 0 });
     return res;
   } catch (err) {
     console.error("DELETE /api/users error:", err);

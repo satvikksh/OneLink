@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
+import { getStoredDeviceKey } from "./src/lib/clientDevice";
 
 type PageKey = "home" | "network" | "jobs" | "chat" | "profile" | "notifications";
 
@@ -67,7 +68,7 @@ export default function ClientApp() {
         const headers = new Headers();
         try {
           if (typeof window !== "undefined") {
-            const deviceKey = localStorage.getItem("onelink_device_key");
+            const deviceKey = getStoredDeviceKey();
             if (deviceKey) headers.set("x-device-key", deviceKey);
           }
         } catch {}

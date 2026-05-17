@@ -1,6 +1,7 @@
 "use client";
 import React, { useCallback, useEffect, useMemo, useState, KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
+import { clearPersistedDeviceKey, getStoredDeviceKey } from "./src/lib/clientDevice";
 
 /* ------------------------------------------------------------------ */
 /*  Types (unchanged)                                                 */
@@ -51,7 +52,7 @@ export async function safeJsonFetch(url: string, opts: RequestInit = {}) {
   // ✅ add device-key header from localStorage
   try {
     if (typeof window !== "undefined") {
-      const dk = localStorage.getItem("onelink_device_key");
+      const dk = getStoredDeviceKey();
       if (dk) headers.set("x-device-key", dk);
     }
   } catch {
@@ -71,7 +72,7 @@ export async function safeJsonFetch(url: string, opts: RequestInit = {}) {
     // local device key clear
     try {
       if (typeof window !== "undefined") {
-        localStorage.removeItem("onelink_device_key");
+        clearPersistedDeviceKey();
       }
     } catch {}
 

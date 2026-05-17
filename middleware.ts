@@ -9,8 +9,9 @@ export function middleware(req: NextRequest) {
     pathname.startsWith("/institutes/dashboard")
   ) {
     const signed = req.cookies.get("session_id")?.value;
+    const deviceKey = req.cookies.get("device_key")?.value;
 
-    if (!signed) {
+    if (!signed || !deviceKey) {
       const url = req.nextUrl.clone();
       url.pathname = pathname.startsWith("/institutes")
         ? "/institutes/login"

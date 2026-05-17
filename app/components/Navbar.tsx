@@ -17,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { getStoredDeviceKey } from "../src/lib/clientDevice";
 
 interface NavItem {
   key: string;
@@ -92,7 +93,7 @@ const SEARCH_HINTS = [
 function getDeviceKey() {
   try {
     if (typeof window === "undefined") return "";
-    return localStorage.getItem("onelink_device_key") || "";
+    return getStoredDeviceKey();
   } catch {
     return "";
   }

@@ -15,7 +15,7 @@ async function getCurrentUserId(req: Request) {
   const signed = jar.get(COOKIE_NAME)?.value;
   if (!signed) return null;
 
-  const deviceKey = req.headers.get("x-device-key") || jar.get("device_key")?.value || null;
+  const deviceKey = jar.get("device_key")?.value || req.headers.get("x-device-key") || null;
   const session = await getSessionBySignedToken(signed, deviceKey);
   if (!session) return null;
 

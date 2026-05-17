@@ -7,7 +7,7 @@ export async function POST(req: Request) {
     const jar = await cookies();
     const signedSession = jar.get("session_id")?.value;
     const deviceKey =
-      req.headers.get("x-device-key") || jar.get("device_key")?.value || null;
+      jar.get("device_key")?.value || req.headers.get("x-device-key") || null;
 
     const session = await getSessionBySignedToken(signedSession, deviceKey);
     if (session) {
